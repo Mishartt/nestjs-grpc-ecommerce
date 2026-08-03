@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package order;
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (Order);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc ListAllOrders(GetAllOrdersRequest) returns (ListOrdersResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (Order);
+  rpc FailOrder(GetOrderRequest) returns (Order);
+  rpc WatchOrderStatus (WatchOrderStatusRequest) returns (stream Order);
+}
+
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+  double price = 3; 
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  repeated OrderItem items = 3;
+  double total_amount = 4;
+  string status = 5;  // "PENDING" | "PAID" | "FAILED" | "CANCELLED"
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  repeated OrderItemInput items = 2;
+}
+
+message OrderItemInput {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message ListOrdersRequest {
+  string user_id = 1;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message GetAllOrdersRequest {}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  string status = 2; // "PAID" | "FAILED" 
+}
+
+message WatchOrderStatusRequest {
+  string id = 1;
+}

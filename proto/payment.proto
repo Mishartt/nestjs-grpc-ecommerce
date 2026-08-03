@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package payment;
+
+service PaymentService {
+  rpc ProcessPayment(ProcessPaymentRequest) returns (Payment);
+  rpc GetPayment(GetPaymentRequest) returns (Payment);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc WatchPayments(WatchPaymentsRequest) returns (stream Payment);
+}
+
+message ProcessPaymentRequest {
+  string order_id = 1;
+  string user_id = 2;
+  double amount = 3;
+}
+
+message GetPaymentRequest {
+  string id = 1;
+}
+
+message Payment {
+  string id = 1;
+  string order_id = 2;
+  string user_id = 3;
+  double amount = 4;
+  string status = 5;  // "SUCCESS" | "FAILED"
+}
+
+message ListPaymentsRequest {}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+}
+
+message WatchPaymentsRequest {}
