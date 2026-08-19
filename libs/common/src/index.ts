@@ -29,6 +29,7 @@ export type {
   RegisterRequest,
   LoginRequest,
   AuthResponse,
+  GetMeRequest,
   AuthServiceClient,
   AuthServiceController,
 } from './generated/auth';
@@ -51,6 +52,7 @@ export type {
   GetAllOrdersRequest,
   UpdateOrderStatusRequest,
   WatchOrderStatusRequest,
+  WatchOrdersRequest,
 } from './generated/order';
 
 export {

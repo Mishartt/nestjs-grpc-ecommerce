@@ -10,6 +10,7 @@ service OrderService {
   rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (Order);
   rpc FailOrder(GetOrderRequest) returns (Order);
   rpc WatchOrderStatus (WatchOrderStatusRequest) returns (stream Order);
+  rpc WatchOrders(WatchOrdersRequest) returns (stream Order);
 }
 
 message OrderItem {
@@ -58,3 +59,5 @@ message UpdateOrderStatusRequest {
 message WatchOrderStatusRequest {
   string id = 1;
 }
+
+message WatchOrdersRequest {}

@@ -23,8 +23,8 @@ export class ProductServiceController implements IProductServiceController {
     return this.productService.getProduct(request.id);
   }
 
-  listProducts(_request: ListProductsRequest) {
-    return this.productService.listProducts();
+  listProducts(request: ListProductsRequest) {
+    return this.productService.listProducts(request.page);
   }
 
   decreaseStock(request: DecreaseStockRequest) {

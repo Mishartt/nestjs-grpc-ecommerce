@@ -19,4 +19,8 @@ export class AuthServiceController implements IAuthServiceController {
   login(request: LoginRequest) {
     return this.authService.login(request);
   }
+
+  getMe(request: { id: string }) {
+    return this.authService.getMe(request.id);
+  }
 }

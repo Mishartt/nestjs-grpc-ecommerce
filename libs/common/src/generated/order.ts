@@ -60,6 +60,9 @@ export interface WatchOrderStatusRequest {
   id: string;
 }
 
+export interface WatchOrdersRequest {
+}
+
 export const ORDER_PACKAGE_NAME = "order";
 
 export interface OrderServiceClient {
@@ -76,6 +79,8 @@ export interface OrderServiceClient {
   failOrder(request: GetOrderRequest): Observable<Order>;
 
   watchOrderStatus(request: WatchOrderStatusRequest): Observable<Order>;
+
+  watchOrders(request: WatchOrdersRequest): Observable<Order>;
 }
 
 export interface OrderServiceController {
@@ -96,6 +101,8 @@ export interface OrderServiceController {
   failOrder(request: GetOrderRequest): Promise<Order> | Observable<Order> | Order;
 
   watchOrderStatus(request: WatchOrderStatusRequest): Observable<Order>;
+
+  watchOrders(request: WatchOrdersRequest): Observable<Order>;
 }
 
 export function OrderServiceControllerMethods() {
@@ -108,6 +115,7 @@ export function OrderServiceControllerMethods() {
       "updateOrderStatus",
       "failOrder",
       "watchOrderStatus",
+      "watchOrders",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

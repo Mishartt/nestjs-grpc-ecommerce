@@ -7,6 +7,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { MulterError } from 'multer';
 
 type GrpcError = {
   code: number;
@@ -36,6 +37,18 @@ export class GrpcToHttpExceptionFilter implements ExceptionFilter {
         statusCode: HttpStatus.NOT_FOUND,
         message: exception.details || 'Not Found',
         error: 'Not Found',
+      });
+    }
+
+    if (exception instanceof MulterError) {
+      const message =
+        exception.code === 'LIMIT_FILE_SIZE'
+          ? 'Image must be at most 2 MB'
+          : exception.message;
+      return response.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message,
+        error: 'Bad Request',
       });
     }
 

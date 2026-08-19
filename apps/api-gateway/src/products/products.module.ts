@@ -7,7 +7,7 @@ import {
 } from '@app/common';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
-
+import { UploadService } from './upload.service';
 
 @Module({
   imports: [
@@ -24,6 +24,6 @@ import { ProductsController } from './products.controller';
     ]),
   ],
   controllers: [ProductsController],
-  providers: [ProductsService],
+  providers: [ProductsService, UploadService],
 })
 export class ProductsModule {}

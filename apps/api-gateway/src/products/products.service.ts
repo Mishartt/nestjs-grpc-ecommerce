@@ -27,7 +27,7 @@ export class ProductsService implements OnModuleInit {
     return firstValueFrom(this.productClient.getProduct({ id }));
   }
 
-  listProducts() {
-    return firstValueFrom(this.productClient.listProducts({}));
+  listProducts(page = 1) {
+    return firstValueFrom(this.productClient.listProducts({ page }));
   }
 }

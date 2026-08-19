@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('products')
 export class ProductEntity {
@@ -16,4 +16,10 @@ export class ProductEntity {
 
   @Column('int')
   stock!: number;
+
+  @Column({ nullable: true, type: 'varchar' })
+  imageUrl!: string | null;
+
+  @CreateDateColumn()
+  createdAt!: Date;
 }

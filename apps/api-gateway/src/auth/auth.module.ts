@@ -7,6 +7,7 @@ import {
 } from '@app/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { CaptchaService } from './captcha.service';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -26,6 +27,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, CaptchaService, JwtStrategy],
 })
 export class AuthModule {}

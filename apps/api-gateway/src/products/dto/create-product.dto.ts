@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsNumber, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateProductDto {
@@ -10,10 +11,12 @@ export class CreateProductDto {
   @MaxLength(255)
   description!: string;
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
   price!: number;
 
+  @Transform(({ value }) => parseInt(value, 10))
   @IsInt()
   @Min(0)
   stock!: number;

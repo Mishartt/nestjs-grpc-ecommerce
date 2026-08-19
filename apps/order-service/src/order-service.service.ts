@@ -123,14 +123,19 @@ export class OrderServiceService implements OnModuleInit {
   }
 
   async listOrders(userId: string): Promise<ListOrdersResponse> {
-    const orders = await this.ordersRepo.find({ where: { userId } });
+    const orders = await this.ordersRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
     return {
       orders: orders.map((order) => this.toProto(order)),
     };
   }
 
   async listAllOrders(): Promise<ListOrdersResponse> {
-    const orders = await this.ordersRepo.find();
+    const orders = await this.ordersRepo.find({
+      order: { createdAt: 'DESC' },
+    });
     return {
       orders: orders.map((order) => this.toProto(order)),
     };
@@ -241,6 +246,10 @@ export class OrderServiceService implements OnModuleInit {
         ),
       ),
     );
+  }
+
+  watchOrders(): Observable<Order> {
+    return this.orderUpdates.asObservable();
   }
 
   private async restoreStock(items: OrderItemEntity[]) {

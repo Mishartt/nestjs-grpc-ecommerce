@@ -17,6 +17,37 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   auth-service:
     build:
       context: .
@@ -40,8 +71,12 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://ecommerce:ecommerce@postgres:5432/ecommerce
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_MS: 60000
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   order-service:
@@ -90,11 +125,36 @@ services:
       PRODUCT_SERVICE_URL: product-service:5001
       ORDER_SERVICE_URL: order-service:5002
       PAYMENT_SERVICE_URL: payment-service:5003
+      CORS_ORIGIN: http://localhost:5173
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: products
     depends_on:
-      - auth-service
-      - product-service
-      - order-service
-      - payment-service
+      minio:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:3000
+    container_name: web
+    restart: unless-stopped
+    ports:
+      - '5173:80'
+    depends_on:
+      - api-gateway
 
 volumes:
   postgres_data:
+  minio_data:

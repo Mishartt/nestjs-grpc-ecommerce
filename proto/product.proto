@@ -19,6 +19,7 @@ message CreateProductRequest {
   string description = 2;
   double price = 3;
   int32 stock = 4;
+  string image_url = 5;
 }
 
 message Product {
@@ -27,12 +28,18 @@ message Product {
   string description = 3;
   double price = 4;
   int32 stock = 5;
+  string image_url = 6;
 }
 
-message ListProductsRequest {}
+message ListProductsRequest {
+  int32 page = 1;
+}
 
 message ListProductsResponse {
   repeated Product products = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 
 message DecreaseStockRequest {

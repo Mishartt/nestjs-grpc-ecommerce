@@ -8,6 +8,7 @@ import {
   OrderServiceController as IOrderServiceController,
   UpdateOrderStatusRequest,
   WatchOrderStatusRequest,
+  WatchOrdersRequest,
 } from '@app/common';
 import { OrderServiceService } from './order-service.service';
 
@@ -42,5 +43,9 @@ export class OrderServiceController implements IOrderServiceController {
 
   watchOrderStatus(request: WatchOrderStatusRequest) {
     return this.orderService.watchOrderStatus(request.id);
+  }
+
+  watchOrders(_request: WatchOrdersRequest) {
+    return this.orderService.watchOrders();
   }
 }

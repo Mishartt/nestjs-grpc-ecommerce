@@ -28,4 +28,8 @@ export class AuthService implements OnModuleInit {
   login(data: LoginRequest){
     return firstValueFrom(this.authClient.login(data));
   }
+
+  getMe(id: string) {
+    return firstValueFrom(this.authClient.getMe({ id }));
+  }
 }

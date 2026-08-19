@@ -31,23 +31,31 @@ export interface AuthResponse {
   user: User | undefined;
 }
 
+export interface GetMeRequest {
+  id: string;
+}
+
 export const AUTH_PACKAGE_NAME = "auth";
 
 export interface AuthServiceClient {
   register(request: RegisterRequest): Observable<AuthResponse>;
 
   login(request: LoginRequest): Observable<AuthResponse>;
+
+  getMe(request: GetMeRequest): Observable<User>;
 }
 
 export interface AuthServiceController {
   register(request: RegisterRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
 
   login(request: LoginRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
+
+  getMe(request: GetMeRequest): Promise<User> | Observable<User> | User;
 }
 
 export function AuthServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["register", "login"];
+    const grpcMethods: string[] = ["register", "login", "getMe"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("AuthService", method)(constructor.prototype[method], method, descriptor);

@@ -19,6 +19,7 @@ export interface CreateProductRequest {
   description: string;
   price: number;
   stock: number;
+  imageUrl: string;
 }
 
 export interface Product {
@@ -27,13 +28,18 @@ export interface Product {
   description: string;
   price: number;
   stock: number;
+  imageUrl: string;
 }
 
 export interface ListProductsRequest {
+  page: number;
 }
 
 export interface ListProductsResponse {
   products: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface DecreaseStockRequest {

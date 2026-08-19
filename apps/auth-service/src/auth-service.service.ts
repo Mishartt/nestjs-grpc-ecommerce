@@ -76,12 +76,29 @@ export class AuthServiceService {
     return this.toAuthResponse(user);
   }
 
-  private toAuthResponse(user: UserEntity): AuthResponse {
-    const publicUser: User = {
+  async getMe(id: string): Promise<User> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+
+    if (!user) {
+      throw new RpcException({
+        code: status.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+
+    return this.toPublicUser(user);
+  }
+
+  private toPublicUser(user: UserEntity): User {
+    return {
       id: user.id,
       email: user.email,
       role: user.role,
     };
+  }
+
+  private toAuthResponse(user: UserEntity): AuthResponse {
+    const publicUser = this.toPublicUser(user);
 
     const accessToken = this.jwtService.sign({
       sub: user.id,
