@@ -1,32 +1,72 @@
 # NestJS gRPC Ecommerce
 
-Monorepo ecommerce: HTTP **API Gateway** + gRPC microservices (auth, product, order, payment) with PostgreSQL, and a **React** shop UI.
+> Production-style e-commerce platform: NestJS microservices, gRPC, PostgreSQL, Redis, MinIO, and Socket.IO.
 
-Base URL (gateway): `http://localhost:3000`  
-Web UI: `http://localhost:5173`
+[Architecture](#architecture) · [Quick start](#quick-start) · [API reference](#api-reference)
+
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
+![gRPC](https://img.shields.io/badge/gRPC-244c5a?style=flat)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
+![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=flat)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=111)
+
+Gateway: `http://localhost:3000` · Shop UI: `http://localhost:5173`
+
+## What this project demonstrates
+
+- Microservice architecture with NestJS and an HTTP API Gateway
+- gRPC / Protobuf between auth, product, order, and payment
+- JWT authentication, RBAC (`USER` / `ADMIN`), and CAPTCHA on register
+- Distributed order flow: stock reservation, mock payment, compensation on fail/expiry
+- Redis catalog cache with generation-based invalidation
+- S3-compatible object storage (MinIO), `sharp` resize, presigned URLs
+- Live updates: Socket.IO (UI) and SSE (Postman / curl)
+- Docker Compose for Postgres, Redis, MinIO, and all apps
+
+## Tech stack
+
+**Backend:** NestJS, TypeScript, gRPC / Protobuf, TypeORM, PostgreSQL, JWT, Passport  
+**Infrastructure:** Redis, MinIO (S3 API), Docker Compose  
+**Realtime:** Socket.IO, SSE  
+**Frontend:** React, Vite, Socket.IO client
 
 ## Architecture
 
-```
-Client (React / browser)
-        │  HTTP + WebSocket
-        ▼
-   web :5173  ──►  api-gateway :3000  ──S3──►  MinIO :9000
-                        │  gRPC                    │
-        ├──────────► auth-service    :5000         │  objects
-        ├──────────► product-service :5001 ──► Redis :6379 (catalog cache)
-        ├──────────► order-service   :5002 ──gRPC──► product-service (stock)
-        └──────────► payment-service :5003
-                          │
-                     PostgreSQL :5432  (stores S3 object key, not bytes)
+```mermaid
+flowchart TB
+  UI[React / Vite]
+  GW[API Gateway]
+  Auth[auth-service]
+  Product[product-service]
+  Order[order-service]
+  Payment[payment-service]
+  PG[(PostgreSQL)]
+  Redis[(Redis)]
+  MinIO[(MinIO)]
+
+  UI -->|HTTP + WebSocket| GW
+  UI -->|presigned GET| MinIO
+  GW -->|gRPC| Auth
+  GW -->|gRPC| Product
+  GW -->|gRPC| Order
+  GW -->|gRPC| Payment
+  GW -->|PutObject / sign| MinIO
+  Product --> Redis
+  Auth --> PG
+  Product --> PG
+  Order --> PG
+  Payment --> PG
+  Order -->|stock| Product
 ```
 
-The browser loads images **directly from MinIO** via short-lived presigned URLs. The gateway uploads files and signs keys; it does not proxy image bytes.
+The browser loads images **from MinIO** via short-lived presigned URLs. Postgres stores the S3 object **key**, not bytes. The gateway uploads and signs; it does not proxy image files.
 
 | Service | Port | Protocol |
 |---------|------|----------|
 | api-gateway | 3000 | HTTP + Socket.IO |
-| web (React) | 5173 | HTTP |
+| web | 5173 | HTTP |
 | minio | 9000 | S3 API |
 | minio console | 9001 | HTTP |
 | redis | 6379 | TCP |
@@ -36,27 +76,13 @@ The browser loads images **directly from MinIO** via short-lived presigned URLs.
 | payment-service | 5003 | gRPC |
 | postgres | 5432 | TCP |
 
-## Features
+**Domain:** catalog (25/page, LIFO, image required in the UI) · orders reserve stock on create · mock pay (~30% `FAILED`) · cron cancels stale `PENDING` and restores stock.
 
-- JWT auth (register / login + CAPTCHA); `admin@test.com` gets `ADMIN` role
-- Product catalog with image, pagination (25/page, LIFO); Redis cache 60s, bust on create/stock change 
-- Images stored in MinIO (S3-compatible); DB keeps only the object key
-- Resize to 320×240 (client canvas + server `sharp`); proportional, no upscale
-- Orders reserve stock on create; restore on payment fail or expiry
-- Mock payment (~30% chance of `FAILED`)
-- Cron: pending orders older than `ORDER_EXPIRE_MINUTES` → `CANCELLED` + stock restore
-- React shop UI (`frontend/`): register with CAPTCHA, catalog, cart, orders, admin tables
-- Live Admin / Orders via Socket.IO (JWT in handshake; events `order.updated`, `payment.created`)
-
-Order statuses: `PENDING` → `PAID` | `FAILED` | `CANCELLED`
-
-## Prerequisites
-
-- Node.js 20+
-- Docker / Docker Compose
-- npm
+`PENDING` → `PAID` | `FAILED` | `CANCELLED`
 
 ## Quick start
+
+**Prerequisites:** Node.js 20+, Docker Compose, npm.
 
 ### Option A — full stack in Docker
 
@@ -64,333 +90,134 @@ Order statuses: `PENDING` → `PAID` | `FAILED` | `CANCELLED`
 docker compose up --build
 ```
 
-Gateway: `http://localhost:3000`  
-Web UI: `http://localhost:5173`  
-Postgres: `localhost:5432` (user/password/db: `ecommerce`)  
-MinIO S3: `http://localhost:9000`  
-MinIO console: `http://localhost:9001` (`minioadmin` / `minioadmin`)  
-Redis: `localhost:6379`
+| | |
+|---|---|
+| Gateway | `http://localhost:3000` |
+| Web | `http://localhost:5173` |
+| Postgres | `localhost:5432` (`ecommerce` / `ecommerce`) |
+| MinIO | `http://localhost:9000` · console `http://localhost:9001` (`minioadmin`) |
+| Redis | `localhost:6379` |
 
-### Option B — local apps + Postgres in Docker
+### Option B — apps locally, infra in Docker
 
 ```bash
 cp .env.example .env
 docker compose up -d postgres minio redis
 npm install
 
-# separate terminals
 npm run start:auth
 npm run start:product
 npm run start:order
 npm run start:payment
 npm run start:gateway
 
-# frontend
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
+cd frontend && cp .env.example .env && npm install && npm run dev
 ```
 
 ## Environment
 
-See [`.env.example`](.env.example).
+See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, `minio`, `redis`, `auth-service:5000`, …). The gateway uploads to `http://minio:9000` but signs URLs with `S3_PUBLIC_ENDPOINT=http://localhost:9000` so the browser can load them.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | Postgres connection string | `postgres://ecommerce:ecommerce@localhost:5432/ecommerce` |
+| `DATABASE_URL` | Postgres | `postgres://ecommerce:ecommerce@localhost:5432/ecommerce` |
 | `JWT_SECRET` | JWT signing secret | `secret` |
-| `ORDER_EXPIRE_MINUTES` | Pending order TTL before cancel | `10` |
-| `CORS_ORIGIN` | Allowed frontend origin | `http://localhost:5173` |
-| `S3_ENDPOINT` | MinIO/S3 API used by the gateway to **upload** | `http://localhost:9000` |
-| `S3_PUBLIC_ENDPOINT` | Host embedded in **presigned URLs** for the browser | `http://localhost:9000` |
-| `S3_ACCESS_KEY` | S3 access key | `minioadmin` |
-| `S3_SECRET_KEY` | S3 secret key | `minioadmin` |
-| `S3_BUCKET` | Bucket for product images | `products` |
-| `REDIS_URL` | Redis used by product-service catalog cache | `redis://localhost:6379` |
-| `CACHE_TTL_MS` | Catalog page TTL in milliseconds | `60000` |
-
-In Docker Compose, service URLs and DB host are set automatically (`postgres`, `auth-service:5000`, etc.). The gateway talks to MinIO at `http://minio:9000` internally, but signs URLs with `S3_PUBLIC_ENDPOINT=http://localhost:9000` so the browser can load them.
-
----
+| `ORDER_EXPIRE_MINUTES` | Pending order TTL | `10` |
+| `CORS_ORIGIN` | Frontend origin | `http://localhost:5173` |
+| `S3_ENDPOINT` | MinIO API (upload) | `http://localhost:9000` |
+| `S3_PUBLIC_ENDPOINT` | Host in presigned URLs | `http://localhost:9000` |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | MinIO credentials | `minioadmin` |
+| `S3_BUCKET` | Product images bucket | `products` |
+| `REDIS_URL` | Catalog cache | `redis://localhost:6379` |
+| `CACHE_TTL_MS` | Page TTL (ms) | `60000` |
 
 ## Product images (MinIO)
 
-1. React resizes the file in the browser (canvas) and sends `multipart/form-data` (`image` field).
-2. Gateway: multer (`memoryStorage`, 2 MB, JPG/PNG/GIF) → `sharp` resize → `PutObject` to MinIO.
-3. `product-service` stores the S3 **key** (`products/<timestamp>-<id>.jpg`) in Postgres.
-4. `GET /products` replaces the key with a **presigned GET URL** (1 hour). The `<img>` tag hits MinIO, not Nest.
+1. UI resizes in the canvas (max 320×240) and sends `multipart/form-data`.
+2. Gateway: multer (`memoryStorage`, 2 MB, JPG/PNG/GIF) → `sharp` → `PutObject`.
+3. `product-service` stores the key (`products/<id>.jpg`) in Postgres.
+4. `GET /products` swaps the key for a presigned GET URL (1 hour).
 
-Bucket `products` is created automatically on gateway startup (`HeadBucket` / `CreateBucket`).
-
----
+Bucket `products` is created on gateway startup.
 
 ## Catalog cache (Redis)
 
-`product-service` caches each list page in Redis (`products:<generation>:page:<n>`, TTL `CACHE_TTL_MS`, default 60s).
+`product-service` caches list pages as `products:<generation>:page:<n>` (TTL 60s).
 
-- Hit: `ListProducts` returns JSON from Redis, no Postgres query.
-- Miss: query + write to Redis.
-- Create / decrease stock / increase stock increments `products:gen`, so old pages expire naturally.
+- **Hit** — no Postgres. **Miss** — query, then `SET`.
+- Create / stock change increments `products:gen` so old pages are ignored.
 
-Gateway still signs MinIO URLs on every HTTP response — cached values are S3 **keys**, not presigned links.
+Cached values are S3 keys. The gateway still signs URLs on every HTTP response.
 
-## Proto codegen
+After changing `proto/`: `npm run proto:gen`.
 
-After changing files in `proto/`:
+## API reference
 
-```bash
-npm run proto:gen
-```
+**Base:** `http://localhost:3000` · protected routes: `Authorization: Bearer <accessToken>`.
 
-## API reference (Postman)
+Typical path: captcha → register → login → create product (form-data) → create order → pay.
 
-**Base URL:** `http://localhost:3000`
-
-For protected routes, set header:
-
-```
-Authorization: Bearer <accessToken>
-```
-
-Use the `accessToken` from login. Paste product/order `id` values from previous responses into the URLs and bodies below.
-
----
+Register `user@test.com` / `password` for a normal user. Same endpoint with `admin@test.com` / `password` gets role `ADMIN`.
 
 ### Auth
 
-#### Get CAPTCHA
+| | |
+|---|---|
+| `GET /auth/captcha` | `{ captchaId, image }` (SVG data URL) |
+| `GET /auth/me` | JWT · user from DB |
+| `POST /auth/register` | `{ email, password, captchaId, captcha }` · `admin@test.com` → `ADMIN` |
+| `POST /auth/login` | `{ email, password }` → `{ accessToken, user }` |
 
-`GET http://localhost:3000/auth/captcha`
+### Products (JWT)
 
-```json
-{
-  "captchaId": "uuid",
-  "image": "data:image/svg+xml;base64,..."
-}
-```
+`POST /products` — `multipart/form-data`: `name`, `description`, `price`, `stock`, optional `image` (JPG/PNG/GIF, ≤ 2 MB). Response `imageUrl` is a presigned URL.
 
-#### Get current user
-
-`GET http://localhost:3000/auth/me`
-
-Header: `Authorization: Bearer <accessToken>`
-
-Loads the user from the database (id, email, role). Used by the React app after refresh.
-
-#### Register user
-
-`POST http://localhost:3000/auth/register`
-
-First call `/auth/captcha`, then send the code:
+`GET /products?page=1` — 25 per page, LIFO.
 
 ```json
-{
-  "email": "user@test.com",
-  "password": "password",
-  "captchaId": "<uuid>",
-  "captcha": "Ab12C"
-}
+{ "products": [], "total": 0, "page": 1, "pageSize": 25 }
 ```
 
-#### Register admin
+`GET /products/:id`
 
-Same endpoint. Email `admin@test.com` is assigned role `ADMIN`. CAPTCHA is still required.
+### Orders (JWT)
 
-#### Login
-
-`POST http://localhost:3000/auth/login`
+`POST /orders` — stock decreases immediately, status `PENDING`.
 
 ```json
-{
-  "email": "user@test.com",
-  "password": "password"
-}
+{ "items": [{ "productId": "<id>", "quantity": 2 }] }
 ```
 
-**Example response:**
+`GET /orders` — mine · `GET /orders/:id` · `GET /orders/all` — ADMIN
 
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "uuid",
-    "email": "user@test.com",
-    "role": "USER"
-  }
-}
-```
+### Payments (JWT)
 
-Copy `accessToken` into Postman → Authorization → Bearer Token.
+`POST /orders/:id/pay` — mock: `PAID` or `FAILED` + stock restore.
 
----
+`GET /payments` — ADMIN
 
-### Products (JWT required)
+### Live updates
 
-#### Create product
+**Socket.IO** (React) on the gateway port. Handshake: `auth.token` = JWT. Unauthorized sockets are dropped.
 
-`POST http://localhost:3000/products`
+| Event | Who | When |
+|-------|-----|------|
+| `order.updated` | owner + admins | create, pay, fail, cron |
+| `payment.created` | admins | after pay |
 
-`Content-Type: multipart/form-data` (JSON body is not used — fields come from the form).
-
-| Field | Type | Required |
-|-------|------|----------|
-| `name` | text | yes |
-| `description` | text | yes |
-| `price` | number | yes |
-| `stock` | integer | yes |
-| `image` | file (JPG / PNG / GIF, ≤ 2 MB) | no |
-
-Postman: Body → form-data. Add the four text keys, then a file key named `image`.
-
-```
-name: Wireless Mouse
-description: Ergonomic wireless mouse
-price: 29.99
-stock: 100
-image: (file)
-```
-
-Response `imageUrl` is a presigned MinIO URL (empty string if no file). Save the product `id` for the next steps.
-
-JSON-only create without a file still works if you send the same fields as form-data without `image`.
-
-#### List products
-
-`GET http://localhost:3000/products?page=1`
-
-Query: `page` (optional, default `1`). Always 25 items per page, newest first (LIFO).
-
-```json
-{
-  "products": [],
-  "total": 0,
-  "page": 1,
-  "pageSize": 25
-}
-```
-
-#### Get product
-
-`GET http://localhost:3000/products/<productId>`
-
----
-
-### Orders (JWT required)
-
-#### Create order
-
-`POST http://localhost:3000/orders`
-
-Stock is decreased immediately. Status starts as `PENDING`.
-
-```json
-{
-  "items": [
-    {
-      "productId": "<productId>",
-      "quantity": 2
-    }
-  ]
-}
-```
-
-Save the returned order `id` for pay / get / stream.
-
-#### My orders
-
-`GET http://localhost:3000/orders`
-
-#### Get order by id
-
-`GET http://localhost:3000/orders/<orderId>`
-
-Own orders only (or any order if `ADMIN`).
-
-#### List all orders (ADMIN)
-
-`GET http://localhost:3000/orders/all`
-
-Login as `admin@test.com` first.
-
----
-
-### Payments (JWT required)
-
-#### Pay for order
-
-`POST http://localhost:3000/orders/<orderId>/pay`
-
-No body. Mock payment: success → status `PAID`; failure → `FAILED` and stock restored.
-
-#### List all payments (ADMIN)
-
-`GET http://localhost:3000/payments`
-
-Login as `admin@test.com` first.
-
-#### Stream new payments (ADMIN, SSE)
-
-`GET http://localhost:3000/payments/stream`
-
-Streams only newly created payments after connection.
-
----
-
-### Order status stream (ADMIN, SSE)
-
-`GET http://localhost:3000/orders/<orderId>/status/stream`
-
-Header: `Authorization: Bearer <admin accessToken>`
-
-Opens a Server-Sent Events stream. Easier to test with curl or a browser than classic Postman:
+**SSE** (Postman / curl):
 
 ```bash
-curl -N -H "Authorization: Bearer <adminToken>" ^
-  http://localhost:3000/orders/<orderId>/status/stream
+curl -N -H "Authorization: Bearer <adminToken>" http://localhost:3000/orders/<orderId>/status/stream
+curl -N -H "Authorization: Bearer <adminToken>" http://localhost:3000/payments/stream
 ```
-
-You receive events when status changes (`PENDING`, `PAID`, `FAILED`, `CANCELLED`).
-
-### WebSocket (React UI)
-
-Socket.IO shares the gateway HTTP port (`http://localhost:3000`). The client sends JWT as `auth.token` on connect. Unauthorized sockets are disconnected.
-
-| Event | Who receives it | When |
-|-------|-----------------|------|
-| `order.updated` | order owner + admins | create, pay, fail, cron expiry |
-| `payment.created` | admins | after `POST /orders/:id/pay` |
-
-SSE endpoints above stay available for curl / Postman.
-
----
-
-## Suggested Postman smoke flow
-
-1. `GET http://localhost:3000/auth/captcha` — copy `captchaId` and read the image
-2. `POST http://localhost:3000/auth/register` — `user@test.com` / `password` + captcha
-3. `POST http://localhost:3000/auth/login` — copy `accessToken`
-4. `POST http://localhost:3000/products` — form-data (optional `image`) — copy product `id`
-5. `GET http://localhost:3000/products` — verify stock
-6. `POST http://localhost:3000/orders`  — copy order `id`
-7. `POST http://localhost:3000/orders/<orderId>/pay` — check `PAID` or `FAILED`
-8. (Optional) register/login `admin@test.com`
-   - `GET http://localhost:3000/orders/all` — all orders in the system
-   - `GET http://localhost:3000/orders/<orderId>/status/stream` — live order status (SSE)
-   - `GET http://localhost:3000/payments` — all payment records
-   - `GET http://localhost:3000/payments/stream` — live new payments (SSE); run pay while connected
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run start:gateway` | API gateway (watch) |
-| `npm run start:auth` | Auth gRPC service |
-| `npm run start:product` | Product gRPC service |
-| `npm run start:order` | Order gRPC service |
-| `npm run start:payment` | Payment gRPC service |
-| `npm run start:web` | React UI (Vite, watch) |
-| `npm run proto:gen` | Regenerate TS from proto |
+| `npm run start:gateway` | API gateway |
+| `npm run start:auth` / `product` / `order` / `payment` | gRPC services |
+| `npm run start:web` | Vite UI |
+| `npm run proto:gen` | TS from proto |
 | `docker compose up --build` | Full stack |
-
-
