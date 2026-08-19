@@ -2,7 +2,7 @@
 
 > Production-style e-commerce platform: NestJS microservices, gRPC, PostgreSQL, Redis, MinIO, and Socket.IO.
 
-[Architecture](#architecture) · [Quick start](#quick-start) · [API reference](#api-reference)
+[Architecture](#architecture) · [Quick start](#quick-start) · [What to try](#what-to-try) · [API reference](#api-reference)
 
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
 ![gRPC](https://img.shields.io/badge/gRPC-244c5a?style=flat)
@@ -114,6 +114,21 @@ npm run start:gateway
 cd frontend && cp .env.example .env && npm install && npm run dev
 ```
 
+## What to try
+
+Open `http://localhost:5173`. Accounts are created via **Register** (CAPTCHA required), not seeded.
+
+| Role | Email | Password | What to check |
+|------|--------|----------|----------------|
+| User | `user@test.com` | `password` | Catalog, image upload (320×240), cart, order, pay, live My orders |
+| Admin | `admin@test.com` | `password` | Admin tables + live `order.updated` / `payment.created` |
+
+Suggested pass:
+
+1. Register the user → add a product → place an order → **Pay** (`PAID` or `FAILED`, stock restored on fail).
+2. Register the admin (second browser / incognito) → watch the same order update without refresh.
+3. Optional: MinIO console `http://localhost:9001` (`minioadmin`) · Redis `KEYS products:*` after two catalog reloads (cache hit).
+
 ## Environment
 
 See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, `minio`, `redis`, `auth-service:5000`, …). The gateway uploads to `http://minio:9000` but signs URLs with `S3_PUBLIC_ENDPOINT=http://localhost:9000` so the browser can load them.
@@ -153,11 +168,7 @@ After changing `proto/`: `npm run proto:gen`.
 
 ## API reference
 
-**Base:** `http://localhost:3000` · protected routes: `Authorization: Bearer <accessToken>`.
-
-Typical path: captcha → register → login → create product (form-data) → create order → pay.
-
-Register `user@test.com` / `password` for a normal user. Same endpoint with `admin@test.com` / `password` gets role `ADMIN`.
+**Base:** `http://localhost:3000` · protected routes: `Authorization: Bearer <accessToken>`. Same accounts as [What to try](#what-to-try).
 
 ### Auth
 
