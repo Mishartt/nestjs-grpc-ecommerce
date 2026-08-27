@@ -2,13 +2,15 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ORDER_PACKAGE_NAME, ORDER_SERVICE, PROTO_PATH } from '@app/common';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthModule } from '../auth/auth.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
 
 @Module({
-  imports: [
-    ClientsModule.register([
+    imports: [
+        AuthModule,
+        ClientsModule.register([
       {
         name: ORDER_SERVICE,
         transport: Transport.GRPC,

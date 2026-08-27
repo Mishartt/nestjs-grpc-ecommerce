@@ -40,6 +40,18 @@ export class GrpcToHttpExceptionFilter implements ExceptionFilter {
       });
     }
 
+    if (
+      this.isGrpcError(exception) &&
+      (exception.code === GrpcStatus.INVALID_ARGUMENT ||
+        exception.code === GrpcStatus.FAILED_PRECONDITION)
+    ) {
+      return response.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: exception.details || 'Bad Request',
+        error: 'Bad Request',
+      });
+    }
+
     if (exception instanceof MulterError) {
       const message =
         exception.code === 'LIMIT_FILE_SIZE'

@@ -32,4 +32,18 @@ export class AuthService implements OnModuleInit {
   getMe(id: string) {
     return firstValueFrom(this.authClient.getMe({ id }));
   }
+
+  getUsers(ids: string[]) {
+    return firstValueFrom(this.authClient.getUsers({ ids }));
+  }
+
+  async emailsById(ids: string[]) {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) {
+      return new Map<string, string>();
+    }
+
+    const { users } = await this.getUsers(unique);
+    return new Map((users ?? []).map((user) => [user.id, user.email]));
+  }
 }

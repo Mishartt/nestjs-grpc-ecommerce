@@ -39,6 +39,9 @@ export class OrderItemEntity {
   @Column()
   productId!: string;
 
+  @Column({ default: '' })
+  productName!: string;
+
   @Column('int')
   quantity!: number;
 

@@ -4,6 +4,8 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
+  ORDER_EVENTS_CLIENT,
+  ORDER_EVENTS_QUEUE,
   PRODUCT_PACKAGE_NAME,
   PRODUCT_SERVICE,
   PROTO_PATH,
@@ -35,6 +37,23 @@ import { OrderServiceService } from './order-service.service';
           protoPath: PROTO_PATH.product,
           url: process.env.PRODUCT_SERVICE_URL || 'localhost:5001',
         },
+      },
+    ]),
+    ClientsModule.registerAsync([
+      {
+        name: ORDER_EVENTS_CLIENT,
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [
+              config.get<string>('RABBITMQ_URL') ??
+                'amqp://guest:guest@localhost:5672',
+            ],
+            queue: ORDER_EVENTS_QUEUE,
+            queueOptions: { durable: true },
+          },
+        }),
       },
     ]),
   ],

@@ -17,6 +17,7 @@ import {
 import type { ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { Observable } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class PaymentsService implements OnModuleInit {
@@ -26,6 +27,7 @@ export class PaymentsService implements OnModuleInit {
   constructor(
     @Inject(ORDER_SERVICE) private orderGrpc: ClientGrpc,
     @Inject(PAYMENT_SERVICE) private paymentGrpc: ClientGrpc,
+    private readonly authService: AuthService,
   ) {}
 
   onModuleInit() {
@@ -74,7 +76,15 @@ export class PaymentsService implements OnModuleInit {
 
   async listAllPayments() {
     const response = await firstValueFrom(this.paymentClient.listPayments({}));
-    return response.payments;
+    const payments = response.payments ?? [];
+    const emails = await this.authService.emailsById(
+      payments.map((payment) => payment.userId),
+    );
+
+    return payments.map((payment) => ({
+      ...payment,
+      userEmail: emails.get(payment.userId) ?? '',
+    }));
   }
 
   watchPayments(): Observable<Payment> {

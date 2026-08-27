@@ -1,12 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { ordersApi, paymentsApi } from '../api/client';
 import { patchById, useRealtimeBindings } from '../api/realtime';
 import type { Order, Payment } from '../types';
 import { useAuthStore } from '../shared/auth/store';
+import { OrderItems } from '../shared/ui/OrderItems';
 
 function money(value: number) {
   return `$${value.toFixed(2)}`;
+}
+
+function OrderIdButton({ id }: { id: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  async function onClick() {
+    setExpanded((current) => !current);
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      /* still show the full id in the table */
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={`copy-id${expanded ? ' copy-id--full' : ''}`}
+      title={expanded ? 'Hide full order id' : 'Show full order id'}
+      onClick={() => void onClick()}
+    >
+      {expanded ? id : `#${id.slice(0, 8)}`}
+    </button>
+  );
 }
 
 export function AdminPage() {
@@ -15,6 +40,8 @@ export function AdminPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
 
   useEffect(() => {
     if (user?.role !== 'ADMIN') {
@@ -33,12 +60,27 @@ export function AdminPage() {
 
   useRealtimeBindings({
     'order.updated': (order) => {
-      setOrders((prev) =>
-        patchById(prev, { ...order, items: order.items ?? [] }),
-      );
+      setOrders((prev) => {
+        const existing = prev.find((row) => row.id === order.id);
+        return patchById(prev, {
+          ...order,
+          items: order.items ?? [],
+          userEmail: order.userEmail || existing?.userEmail,
+        });
+      });
     },
     'payment.created': (payment) => {
-      setPayments((prev) => patchById(prev, payment));
+      setPayments((prev) => {
+        const existing = prev.find((row) => row.id === payment.id);
+        const fromOrder = ordersRef.current.find(
+          (order) => order.userId === payment.userId,
+        );
+        return patchById(prev, {
+          ...payment,
+          userEmail:
+            payment.userEmail || existing?.userEmail || fromOrder?.userEmail,
+        });
+      });
     },
   });
 
@@ -60,8 +102,9 @@ export function AdminPage() {
         <table>
           <thead>
             <tr>
-              <th>Id</th>
-              <th>User</th>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Items</th>
               <th>Total</th>
               <th>Status</th>
             </tr>
@@ -70,10 +113,11 @@ export function AdminPage() {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td>
-                  <code>{order.id.slice(0, 8)}</code>
+                  <OrderIdButton id={order.id} />
                 </td>
+                <td>{order.userEmail || 'Unknown user'}</td>
                 <td>
-                  <code>{order.userId.slice(0, 8)}</code>
+                  <OrderItems items={order.items ?? []} compact />
                 </td>
                 <td>{money(order.totalAmount)}</td>
                 <td>
@@ -92,8 +136,9 @@ export function AdminPage() {
         <table>
           <thead>
             <tr>
-              <th>Id</th>
+              <th>Payment</th>
               <th>Order</th>
+              <th>Customer</th>
               <th>Amount</th>
               <th>Status</th>
             </tr>
@@ -101,12 +146,11 @@ export function AdminPage() {
           <tbody>
             {payments.map((payment) => (
               <tr key={payment.id}>
+                <td>#{payment.id.slice(0, 8)}</td>
                 <td>
-                  <code>{payment.id.slice(0, 8)}</code>
+                  <OrderIdButton id={payment.orderId} />
                 </td>
-                <td>
-                  <code>{payment.orderId.slice(0, 8)}</code>
-                </td>
+                <td>{payment.userEmail || 'Unknown user'}</td>
                 <td>{money(payment.amount)}</td>
                 <td>
                   <span

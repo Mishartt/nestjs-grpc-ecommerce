@@ -23,4 +23,8 @@ export class AuthServiceController implements IAuthServiceController {
   getMe(request: { id: string }) {
     return this.authService.getMe(request.id);
   }
+
+  async getUsers(request: { ids: string[] }) {
+    return { users: await this.authService.getUsers(request.ids ?? []) };
+  }
 }

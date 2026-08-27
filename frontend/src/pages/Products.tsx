@@ -1,4 +1,5 @@
 import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ordersApi, productsApi } from '../api/client';
 import type { Product } from '../types';
 
@@ -75,9 +76,6 @@ export function ProductsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
-    null,
-  );
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,15 +94,6 @@ export function ProductsPage() {
       })
       .finally(() => setLoading(false));
   }, [page]);
-
-  useEffect(() => {
-    if (!lightbox) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setLightbox(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightbox]);
 
   const pageCount = Math.max(1, Math.ceil(productCount / pageSize));
 
@@ -212,7 +201,6 @@ export function ProductsPage() {
   }
 
   return (
-    <>
     <div className="split">
       <section>
         <div className="page-head">
@@ -232,36 +220,30 @@ export function ProductsPage() {
           <ul className="product-grid">
             {products.map((product) => (
               <li key={product.id} className="card product-card">
-{hasImage(product.imageUrl) ? (
-                    <button
-                      type="button"
-                      className="product-img-btn"
-                      onClick={() =>
-                        setLightbox({
-                          src: product.imageUrl as string,
-                          alt: product.name,
-                        })
-                      }
-                    >
-                      <img
-                        className="product-img"
-                        src={product.imageUrl}
-                        alt={product.name}
-                        width={MAX_W}
-                        height={MAX_H}
-                      />
-                    </button>
-                ) : (
-                  <div className="product-img product-img--placeholder" />
-                )}
-                <h2 title={product.name}>{product.name}</h2>
-                <p className="product-desc" title={product.description}>
-                  {product.description}
-                </p>
-                <div className="product-meta">
-                  <strong>{money(product.price)}</strong>
-                  <span className="muted">stock {product.stock}</span>
-                </div>
+                <Link
+                  to={`/products/${product.id}`}
+                  className="product-card-link"
+                >
+                  {hasImage(product.imageUrl) ? (
+                    <img
+                      className="product-img"
+                      src={product.imageUrl}
+                      alt={product.name}
+                      width={MAX_W}
+                      height={MAX_H}
+                    />
+                  ) : (
+                    <div className="product-img product-img--placeholder" />
+                  )}
+                  <h2 title={product.name}>{product.name}</h2>
+                  <p className="product-desc" title={product.description}>
+                    {product.description}
+                  </p>
+                  <div className="product-meta">
+                    <strong>{money(product.price)}</strong>
+                    <span className="muted">stock {product.stock}</span>
+                  </div>
+                </Link>
                 <button
                   type="button"
                   disabled={product.stock <= 0}
@@ -395,23 +377,5 @@ export function ProductsPage() {
         </div>
       </aside>
     </div>
-    {lightbox ? (
-      <div
-        className="lightbox"
-        role="dialog"
-        aria-modal="true"
-        aria-label={lightbox.alt}
-        onClick={() => setLightbox(null)}
-      >
-        <img
-          src={lightbox.src}
-          alt={lightbox.alt}
-          width={MAX_W}
-          height={MAX_H}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
-    ) : null}
-    </>
   );
 }

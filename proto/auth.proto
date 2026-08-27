@@ -6,6 +6,7 @@ service AuthService {
   rpc Register(RegisterRequest) returns (AuthResponse);
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc GetMe(GetMeRequest) returns (User);
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
 }
 
 message RegisterRequest {
@@ -31,4 +32,12 @@ message AuthResponse {
 
 message GetMeRequest {
   string id = 1;
+}
+
+message GetUsersRequest {
+  repeated string ids = 1;
+}
+
+message GetUsersResponse {
+  repeated User users = 1;
 }

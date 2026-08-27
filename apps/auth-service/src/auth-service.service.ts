@@ -6,7 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
 
 @Injectable()
@@ -87,6 +87,16 @@ export class AuthServiceService {
     }
 
     return this.toPublicUser(user);
+  }
+
+  async getUsers(ids: string[]): Promise<User[]> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) {
+      return [];
+    }
+
+    const users = await this.usersRepo.find({ where: { id: In(unique) } });
+    return users.map((user) => this.toPublicUser(user));
   }
 
   private toPublicUser(user: UserEntity): User {

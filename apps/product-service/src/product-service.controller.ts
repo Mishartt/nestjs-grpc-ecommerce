@@ -1,9 +1,11 @@
 import { Controller } from '@nestjs/common';
 import {
+  CreateCommentRequest,
   CreateProductRequest,
   DecreaseStockRequest,
   GetProductRequest,
   IncreaseStockRequest,
+  ListCommentsRequest,
   ListProductsRequest,
   ProductServiceControllerMethods,
   ProductServiceController as IProductServiceController,
@@ -33,5 +35,13 @@ export class ProductServiceController implements IProductServiceController {
 
   increaseStock(request: IncreaseStockRequest) {
     return this.productService.increaseStock(request);
+  }
+
+  listComments(request: ListCommentsRequest) {
+    return this.productService.listComments(request);
+  }
+
+  createComment(request: CreateCommentRequest) {
+    return this.productService.createComment(request);
   }
 }

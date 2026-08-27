@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ORDER_PACKAGE_NAME, ORDER_SERVICE, PAYMENT_PACKAGE_NAME, PAYMENT_SERVICE, PROTO_PATH } from '@app/common';
+import { AuthModule } from '../auth/auth.module';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 
 @Module({
   imports: [
+    AuthModule,
     ClientsModule.register([
       {
         name: PAYMENT_SERVICE,

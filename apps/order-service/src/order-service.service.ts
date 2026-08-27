@@ -2,6 +2,9 @@ import {
   CreateOrderRequest,
   ListOrdersResponse,
   Order,
+  ORDER_EVENTS_CLIENT,
+  ORDER_EVENT_PATTERN,
+  orderEventType,
   PRODUCT_SERVICE,
   PRODUCT_SERVICE_NAME,
   ProductServiceClient,
@@ -9,11 +12,11 @@ import {
 } from '@app/common';
 import { status } from '@grpc/grpc-js';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { OnModuleInit } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RpcException } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import type { ClientGrpc } from '@nestjs/microservices';
 import {
   filter,
@@ -29,13 +32,14 @@ import { DataSource, LessThan, Repository } from 'typeorm';
 import { OrderEntity, OrderItemEntity } from './entities/order.entity';
 
 @Injectable()
-export class OrderServiceService implements OnModuleInit {
+export class OrderServiceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrderServiceService.name);
   private readonly orderUpdates = new Subject<Order>();
   private productClient!: ProductServiceClient;
 
   constructor(
     @Inject(PRODUCT_SERVICE) private client: ClientGrpc,
+    @Inject(ORDER_EVENTS_CLIENT) private readonly orderEvents: ClientProxy,
     @InjectRepository(OrderEntity)
     private readonly ordersRepo: Repository<OrderEntity>,
     private readonly dataSource: DataSource,
@@ -46,6 +50,21 @@ export class OrderServiceService implements OnModuleInit {
     this.productClient = this.client.getService<ProductServiceClient>(
       PRODUCT_SERVICE_NAME,
     );
+    void this.orderEvents.connect().catch((err: unknown) => {
+      this.logger.warn(
+        `RabbitMQ not ready yet: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    });
+  }
+
+  async onModuleDestroy() {
+    try {
+      await this.orderEvents.close();
+    } catch {
+      // never connected or already closed
+    }
   }
 
   async createOrder(data: CreateOrderRequest): Promise<Order> {
@@ -56,8 +75,12 @@ export class OrderServiceService implements OnModuleInit {
       });
     }
 
-    const reservedItems: { productId: string; quantity: number; price: number }[] =
-      [];
+    const reservedItems: {
+      productId: string;
+      productName: string;
+      quantity: number;
+      price: number;
+    }[] = [];
 
     try {
       for (const item of data.items) {
@@ -70,6 +93,7 @@ export class OrderServiceService implements OnModuleInit {
 
         reservedItems.push({
           productId: item.productId,
+          productName: product.name,
           quantity: item.quantity,
           price: product.price,
         });
@@ -273,6 +297,7 @@ export class OrderServiceService implements OnModuleInit {
       status: order.status,
       items: (order.items ?? []).map((item) => ({
         productId: item.productId,
+        productName: item.productName ?? '',
         quantity: item.quantity,
         price: item.price,
       })),
@@ -281,5 +306,35 @@ export class OrderServiceService implements OnModuleInit {
 
   private emitOrderUpdate(order: Order) {
     this.orderUpdates.next({ ...order, items: [...order.items] });
+
+    const type = orderEventType(order.status);
+    if (!type) {
+      this.logger.warn(
+        `Skipped order event for ${order.id}: unknown status ${order.status}`,
+      );
+      return;
+    }
+
+    this.orderEvents
+      .emit(ORDER_EVENT_PATTERN, {
+        type,
+        orderId: order.id,
+        userId: order.userId,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        occurredAt: new Date().toISOString(),
+        items: (order.items ?? []).map((item) => ({
+          name: item.productName || 'item',
+          quantity: item.quantity,
+        })),
+      })
+      .subscribe({
+        error: (err: unknown) =>
+          this.logger.warn(
+            `Failed to publish order event ${order.id}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+      });
   }
 }

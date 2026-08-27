@@ -1,19 +1,17 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import {
   AUTH_PACKAGE_NAME,
   AUTH_SERVICE,
   PROTO_PATH,
 } from '@app/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { CaptchaService } from './captcha.service';
-import { PassportModule } from '@nestjs/passport';
-import { JwtStrategy } from './strategies/jwt.strategy';
+import { NotificationServiceController } from './notification-service.controller';
+import { MailService } from './mail.service';
 
 @Module({
   imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    ConfigModule.forRoot({ isGlobal: true }),
     ClientsModule.register([
       {
         name: AUTH_SERVICE,
@@ -26,8 +24,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       },
     ]),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, CaptchaService, JwtStrategy],
-  exports: [AuthService],
+  controllers: [NotificationServiceController],
+  providers: [MailService],
 })
-export class AuthModule {}
+export class NotificationServiceModule {}

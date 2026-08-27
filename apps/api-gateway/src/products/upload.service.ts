@@ -10,6 +10,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+export const MAX_COMMENT_IMAGES = 5;
 export const ALLOWED_IMAGE_MIMES = new Set([
   'image/jpeg',
   'image/png',
@@ -55,7 +56,10 @@ export class UploadService implements OnModuleInit {
     }
   }
 
-  async saveImage(file: Express.Multer.File): Promise<string> {
+  async saveImage(
+    file: Express.Multer.File,
+    folder = 'products',
+  ): Promise<string> {
     if (!ALLOWED_IMAGE_MIMES.has(file.mimetype)) {
       throw new Error(
         `Invalid image type: ${file.mimetype}. Allowed: jpg, png, gif`,
@@ -63,7 +67,7 @@ export class UploadService implements OnModuleInit {
     }
 
     const ext = this.extFromMime(file.mimetype);
-    const key = `products/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
 
     const meta = await sharp(file.buffer).metadata();
     const needsResize =

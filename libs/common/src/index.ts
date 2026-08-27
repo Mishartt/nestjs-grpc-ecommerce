@@ -1,4 +1,16 @@
 export * from './constants';
+export {
+  ORDER_EVENTS_CLIENT,
+  ORDER_EVENTS_QUEUE,
+  ORDER_EVENT_PATTERN,
+  orderEventType,
+  rabbitmqUrl,
+} from './events/order-events';
+export type {
+  OrderEventItem,
+  OrderEventType,
+  OrderStatusEvent,
+} from './events/order-events';
 
 export {
   PRODUCT_PACKAGE_NAME,
@@ -14,6 +26,10 @@ export type {
   ListProductsResponse,
   DecreaseStockRequest,
   IncreaseStockRequest,
+  Comment,
+  ListCommentsRequest,
+  ListCommentsResponse,
+  CreateCommentRequest,
   ProductServiceClient,
   ProductServiceController,
 } from './generated/product';
@@ -30,6 +46,8 @@ export type {
   LoginRequest,
   AuthResponse,
   GetMeRequest,
+  GetUsersRequest,
+  GetUsersResponse,
   AuthServiceClient,
   AuthServiceController,
 } from './generated/auth';

@@ -52,6 +52,43 @@ export interface IncreaseStockRequest {
   quantity: number;
 }
 
+export interface Comment {
+  id: string;
+  productId: string;
+  parentId: string;
+  userId: string;
+  authorName: string;
+  authorEmail: string;
+  body: string;
+  imageUrls: string[];
+  createdAt: string;
+  replies: Comment[];
+}
+
+export interface ListCommentsRequest {
+  productId: string;
+  sortBy: string;
+  sortOrder: string;
+  page: number;
+}
+
+export interface ListCommentsResponse {
+  comments: Comment[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CreateCommentRequest {
+  productId: string;
+  parentId: string;
+  userId: string;
+  authorName: string;
+  authorEmail: string;
+  body: string;
+  imageUrls: string[];
+}
+
 export const PRODUCT_PACKAGE_NAME = "product";
 
 export interface ProductServiceClient {
@@ -64,6 +101,10 @@ export interface ProductServiceClient {
   decreaseStock(request: DecreaseStockRequest): Observable<Product>;
 
   increaseStock(request: IncreaseStockRequest): Observable<Product>;
+
+  listComments(request: ListCommentsRequest): Observable<ListCommentsResponse>;
+
+  createComment(request: CreateCommentRequest): Observable<Comment>;
 }
 
 export interface ProductServiceController {
@@ -78,11 +119,25 @@ export interface ProductServiceController {
   decreaseStock(request: DecreaseStockRequest): Promise<Product> | Observable<Product> | Product;
 
   increaseStock(request: IncreaseStockRequest): Promise<Product> | Observable<Product> | Product;
+
+  listComments(
+    request: ListCommentsRequest,
+  ): Promise<ListCommentsResponse> | Observable<ListCommentsResponse> | ListCommentsResponse;
+
+  createComment(request: CreateCommentRequest): Promise<Comment> | Observable<Comment> | Comment;
 }
 
 export function ProductServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getProduct", "listProducts", "createProduct", "decreaseStock", "increaseStock"];
+    const grpcMethods: string[] = [
+      "getProduct",
+      "listProducts",
+      "createProduct",
+      "decreaseStock",
+      "increaseStock",
+      "listComments",
+      "createComment",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("ProductService", method)(constructor.prototype[method], method, descriptor);

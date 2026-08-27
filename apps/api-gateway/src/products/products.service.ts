@@ -30,4 +30,42 @@ export class ProductsService implements OnModuleInit {
   listProducts(page = 1) {
     return firstValueFrom(this.productClient.listProducts({ page }));
   }
+
+  listComments(
+    productId: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    page = 1,
+  ) {
+    return firstValueFrom(
+      this.productClient.listComments({
+        productId,
+        sortBy,
+        sortOrder,
+        page,
+      }),
+    );
+  }
+
+  createComment(data: {
+    productId: string;
+    parentId?: string;
+    userId: string;
+    authorName: string;
+    authorEmail: string;
+    body: string;
+    imageUrls?: string[];
+  }) {
+    return firstValueFrom(
+      this.productClient.createComment({
+        productId: data.productId,
+        parentId: data.parentId ?? '',
+        userId: data.userId,
+        authorName: data.authorName,
+        authorEmail: data.authorEmail,
+        body: data.body,
+        imageUrls: data.imageUrls ?? [],
+      }),
+    );
+  }
 }

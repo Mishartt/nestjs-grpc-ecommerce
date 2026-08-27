@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import KeyvRedis from '@keyv/redis';
 import { ProductEntity } from './entities/product.entity';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  import { CommentEntity } from './entities/comment.entity';
 import { ProductServiceController } from './product-service.controller';
 import { ProductServiceService } from './product-service.service';
 
@@ -29,7 +30,7 @@ import { ProductServiceService } from './product-service.service';
         synchronize: true,
       }),
     }),
-    TypeOrmModule.forFeature([ProductEntity]),
+    TypeOrmModule.forFeature([ProductEntity, CommentEntity]),
   ],
   controllers: [ProductServiceController],
   providers: [ProductServiceService],

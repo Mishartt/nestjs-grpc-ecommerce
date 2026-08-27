@@ -4,6 +4,8 @@ import type {
   Order,
   Payment,
   Product,
+  ProductComment,
+  ProductCommentList,
   ProductList,
   RegisterRequest,
   User,
@@ -34,6 +36,26 @@ export const productsApi = {
   create: (formData: FormData) =>
     request<Product>(
       http.post('/products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }),
+    ),
+  get: (id: string) => request<Product>(http.get(`/products/${id}`)),
+  comments: (id: string, sort = 'createdAt', order = 'desc', page = 1) =>
+    request<ProductCommentList>(
+      http.get(`/products/${id}/comments`, { params: { sort, order, page } }),
+    ).then((res) => ({
+      comments: (res.comments ?? []).map((comment) => ({
+        ...comment,
+        imageUrls: comment.imageUrls ?? [],
+        replies: comment.replies ?? [],
+      })),
+      total: res.total ?? 0,
+      page: res.page ?? page,
+      pageSize: res.pageSize ?? 25,
+    })),
+  createComment: (id: string, formData: FormData) =>
+    request<ProductComment>(
+      http.post(`/products/${id}/comments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }),
     ),

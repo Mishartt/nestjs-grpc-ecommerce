@@ -39,6 +39,7 @@ export type ProductList = {
 
 export type OrderItem = {
   productId: string;
+  productName?: string;
   quantity: number;
   price: number;
 };
@@ -46,6 +47,7 @@ export type OrderItem = {
 export type Order = {
   id: string;
   userId: string;
+  userEmail?: string;
   items: OrderItem[];
   totalAmount: number;
   status: string;
@@ -55,6 +57,27 @@ export type Payment = {
   id: string;
   orderId: string;
   userId: string;
+  userEmail?: string;
   amount: number;
   status: string;
+};
+
+export type ProductCommentList = {
+  comments: ProductComment[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type ProductComment = {
+  id: string;
+  productId: string;
+  parentId?: string;
+  userId: string;
+  authorName: string;
+  authorEmail: string;
+  body: string;
+  imageUrls?: string[];
+  createdAt: string;
+  replies: ProductComment[];
 };

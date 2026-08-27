@@ -7,6 +7,11 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@app/common/comment-html": ["../libs/common/src/comment-html.ts"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

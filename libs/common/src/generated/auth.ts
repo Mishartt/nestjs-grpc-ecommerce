@@ -35,6 +35,14 @@ export interface GetMeRequest {
   id: string;
 }
 
+export interface GetUsersRequest {
+  ids: string[];
+}
+
+export interface GetUsersResponse {
+  users: User[];
+}
+
 export const AUTH_PACKAGE_NAME = "auth";
 
 export interface AuthServiceClient {
@@ -43,6 +51,8 @@ export interface AuthServiceClient {
   login(request: LoginRequest): Observable<AuthResponse>;
 
   getMe(request: GetMeRequest): Observable<User>;
+
+  getUsers(request: GetUsersRequest): Observable<GetUsersResponse>;
 }
 
 export interface AuthServiceController {
@@ -51,11 +61,13 @@ export interface AuthServiceController {
   login(request: LoginRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
 
   getMe(request: GetMeRequest): Promise<User> | Observable<User> | User;
+
+  getUsers(request: GetUsersRequest): Promise<GetUsersResponse> | Observable<GetUsersResponse> | GetUsersResponse;
 }
 
 export function AuthServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["register", "login", "getMe"];
+    const grpcMethods: string[] = ["register", "login", "getMe", "getUsers"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("AuthService", method)(constructor.prototype[method], method, descriptor);

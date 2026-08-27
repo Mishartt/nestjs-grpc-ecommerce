@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ordersApi } from '../api/client';
 import { patchById, useRealtimeBindings } from '../api/realtime';
 import { useAuthStore } from '../shared/auth/store';
+import { OrderItems } from '../shared/ui/OrderItems';
 import type { Order } from '../types';
 
 function money(value: number) {
@@ -13,6 +14,7 @@ export function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function reload() {
@@ -38,6 +40,18 @@ export function OrdersPage() {
       );
     },
   });
+
+  async function copyOrderId(orderId: string) {
+    try {
+      await navigator.clipboard.writeText(orderId);
+      setCopiedId(orderId);
+      window.setTimeout(() => {
+        setCopiedId((current) => (current === orderId ? null : current));
+      }, 1600);
+    } catch {
+      setError('Could not copy order id');
+    }
+  }
 
   async function pay(orderId: string) {
     setError('');
@@ -67,19 +81,21 @@ export function OrdersPage() {
           {orders.map((order) => (
             <li key={order.id} className="card order-card">
               <div className="order-head">
-                <code>{order.id}</code>
+                <button
+                  type="button"
+                  className="copy-id"
+                  title="Copy full order id"
+                  onClick={() => void copyOrderId(order.id)}
+                >
+                  {copiedId === order.id
+                    ? 'Copied'
+                    : `Order #${order.id.slice(0, 8)}`}
+                </button>
                 <span className={`status status-${order.status.toLowerCase()}`}>
                   {order.status}
                 </span>
               </div>
-              <ul className="muted">
-                {(order.items ?? []).map((item) => (
-                  <li key={`${order.id}-${item.productId}`}>
-                    {item.quantity} × {item.productId.slice(0, 8)}… @{' '}
-                    {money(item.price)}
-                  </li>
-                ))}
-              </ul>
+              <OrderItems items={order.items ?? []} />
               <div className="order-foot">
                 <strong>{money(order.totalAmount)}</strong>
                 {order.status === 'PENDING' ? (

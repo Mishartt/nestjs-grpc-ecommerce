@@ -36,6 +36,27 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -90,10 +111,34 @@ services:
       DATABASE_URL: postgres://ecommerce:ecommerce@postgres:5432/ecommerce
       PRODUCT_SERVICE_URL: product-service:5001
       ORDER_EXPIRE_MINUTES: ${ORDER_EXPIRE_MINUTES:-10}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       postgres:
         condition: service_healthy
       product-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      args:
+        APP: notification-service
+    container_name: notification-service
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      AUTH_SERVICE_URL: auth-service:5000
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: shop@localhost
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      mailhog:
         condition: service_started
 
   payment-service:
@@ -145,7 +190,8 @@ services:
 
   web:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         VITE_API_URL: http://localhost:3000
     container_name: web

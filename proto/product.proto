@@ -8,6 +8,8 @@ service ProductService {
   rpc CreateProduct(CreateProductRequest) returns (Product);
   rpc DecreaseStock(DecreaseStockRequest) returns (Product);
   rpc IncreaseStock(IncreaseStockRequest) returns (Product);
+  rpc ListComments(ListCommentsRequest) returns (ListCommentsResponse);
+  rpc CreateComment(CreateCommentRequest) returns (Comment);
 }
 
 message GetProductRequest {
@@ -50,4 +52,41 @@ message DecreaseStockRequest {
 message IncreaseStockRequest {
   string id = 1;
   int32 quantity = 2;
+}
+
+message Comment {
+  string id = 1;
+  string product_id = 2;
+  string parent_id = 3;
+  string user_id = 4;
+  string author_name = 5;
+  string author_email = 6;
+  string body = 7;
+  repeated string image_urls = 8;
+  string created_at = 9;
+  repeated Comment replies = 10;
+}
+
+message ListCommentsRequest {
+  string product_id = 1;
+  string sort_by = 2;
+  string sort_order = 3;
+  int32 page = 4;
+}
+
+message ListCommentsResponse {
+  repeated Comment comments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message CreateCommentRequest {
+  string product_id = 1;
+  string parent_id = 2;
+  string user_id = 3;
+  string author_name = 4;
+  string author_email = 5;
+  string body = 6;
+  repeated string image_urls = 7;
 }
