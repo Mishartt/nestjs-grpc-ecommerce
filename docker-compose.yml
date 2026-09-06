@@ -171,14 +171,17 @@ services:
       ORDER_SERVICE_URL: order-service:5002
       PAYMENT_SERVICE_URL: payment-service:5003
       CORS_ORIGIN: http://localhost:5173
+      S3_PROVIDER: ${S3_PROVIDER:-minio}
       S3_ENDPOINT: http://minio:9000
-      S3_PUBLIC_ENDPOINT: http://localhost:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET: products
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-products}
     depends_on:
       minio:
         condition: service_healthy
+        required: false
       auth-service:
         condition: service_started
       product-service:

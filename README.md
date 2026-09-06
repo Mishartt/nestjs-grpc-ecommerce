@@ -22,7 +22,7 @@ Gateway: `http://localhost:3000` · Shop UI: `http://localhost:5173`
 - JWT authentication, RBAC (`USER` / `ADMIN`), and CAPTCHA on register
 - Distributed order flow: stock reservation, mock payment, compensation on fail/expiry
 - Redis catalog cache with generation-based invalidation
-- S3-compatible object storage (MinIO), `sharp` resize, presigned URLs
+- S3-compatible object storage (MinIO locally, Amazon S3 in the cloud), `sharp` resize, presigned URLs
 - Nested product comments (HTML whitelist, optional images, depth cap)
 - Live updates: Socket.IO (UI) and SSE (Postman / curl)
 - Async order emails: RabbitMQ → notification-service → Mailhog (checkout does not wait on mail)
@@ -31,7 +31,7 @@ Gateway: `http://localhost:3000` · Shop UI: `http://localhost:5173`
 ## Tech stack
 
 **Backend:** NestJS, TypeScript, gRPC / Protobuf, TypeORM, PostgreSQL, JWT, Passport  
-**Infrastructure:** Redis, MinIO (S3 API), RabbitMQ, Mailhog, Docker Compose  
+**Infrastructure:** Redis, MinIO or Amazon S3, RabbitMQ, Mailhog, Docker Compose  
 **Realtime:** Socket.IO, SSE  
 **Frontend:** React, Vite, Socket.IO client
 
@@ -149,7 +149,7 @@ Suggested pass:
 
 ## Environment
 
-See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, `minio`, `redis`, `auth-service:5000`, …). The gateway uploads to `http://minio:9000` but signs URLs with `S3_PUBLIC_ENDPOINT=http://localhost:9000` so the browser can load them.
+See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, `minio`, `redis`, `auth-service:5000`, …). Locally the gateway uploads to `http://minio:9000` and signs URLs with `S3_PUBLIC_ENDPOINT=http://localhost:9000` so the browser can load them. Set `S3_PROVIDER=aws` to use Amazon S3 (custom endpoint is ignored).
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -157,10 +157,14 @@ See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, 
 | `JWT_SECRET` | JWT signing secret | `secret` |
 | `ORDER_EXPIRE_MINUTES` | Pending order TTL | `10` |
 | `CORS_ORIGIN` | Frontend origin | `http://localhost:5173` |
-| `S3_ENDPOINT` | MinIO API (upload) | `http://localhost:9000` |
-| `S3_PUBLIC_ENDPOINT` | Host in presigned URLs | `http://localhost:9000` |
-| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | MinIO credentials | `minioadmin` |
-| `S3_BUCKET` | Product images bucket | `products` |
+| `S3_PROVIDER` | `minio` or `aws` | `minio` |
+| `S3_ENDPOINT` | MinIO API. Ignored when `S3_PROVIDER=aws` | `http://localhost:9000` |
+| `S3_PUBLIC_ENDPOINT` | Host in presigned URLs. On AWS, unset = standard S3 URL | `http://localhost:9000` |
+| `S3_REGION` | Signing region (`eu-central-1` for Frankfurt) | `us-east-1` |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | MinIO or IAM user keys. On AWS, unset uses the default credential chain | `minioadmin` |
+| `S3_BUCKET` | Image bucket (must already exist on AWS) | `products` |
+| `S3_FORCE_PATH_STYLE` | Path-style URLs. Unset: on for MinIO, off for AWS | inferred |
+| `S3_CREATE_BUCKET` | Create the bucket on boot. Unset: on for MinIO, off for AWS | inferred |
 | `REDIS_URL` | Catalog cache | `redis://localhost:6379` |
 | `CACHE_TTL_MS` | Page TTL (ms) | `60000` |
 | `RABBITMQ_URL` | Order event bus (order-service + notification-service) | `amqp://guest:guest@localhost:5672` |
@@ -168,14 +172,26 @@ See [`.env.example`](.env.example). Compose sets service hostnames (`postgres`, 
 | `SMTP_HOST` / `SMTP_PORT` | Mailhog SMTP | `localhost` / `1025` |
 | `MAIL_FROM` | From header | `shop@localhost` |
 
-## Product images (MinIO)
+## Product images (MinIO / Amazon S3)
+
+Same gateway client (`@aws-sdk/client-s3`). Locally it talks to MinIO; set `S3_PROVIDER=aws` to talk to Amazon S3.
 
 1. UI resizes in the canvas (max 320×240) and sends `multipart/form-data`.
 2. Gateway: multer (`memoryStorage`, 2 MB, JPG/PNG/GIF) → `sharp` → `PutObject`.
-3. `product-service` stores the key (`products/<id>.jpg`) in Postgres.
+3. `product-service` stores the **key**, not bytes, in Postgres.
 4. `GET /products` swaps the key for a presigned GET URL (1 hour).
 
-Bucket `products` is created on gateway startup.
+MinIO bucket `products` is created on gateway startup. On AWS, create the bucket in the console first, use a globally unique name, and give the IAM user `s3:HeadBucket`, `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`.
+
+Server `.env` example:
+
+```env
+S3_PROVIDER=aws
+S3_REGION=eu-central-1
+S3_ACCESS_KEY=AKIA...
+S3_SECRET_KEY=...
+S3_BUCKET=your-globally-unique-bucket
+```
 
 ## Catalog cache (Redis)
 
