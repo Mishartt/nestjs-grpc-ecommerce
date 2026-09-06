@@ -46,6 +46,8 @@ export type OrderItem = {
 
 export type Order = {
   id: string;
+  /** Human-facing number, e.g. ORD-A7K2M9QX */
+  publicId?: string;
   userId: string;
   userEmail?: string;
   items: OrderItem[];

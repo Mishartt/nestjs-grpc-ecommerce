@@ -2,6 +2,7 @@ import {
   CreateCommentRequest,
   CreateProductRequest,
   DecreaseStockRequest,
+  DeleteProductResponse,
   IncreaseStockRequest,
   ListCommentsRequest,
   ListCommentsResponse,
@@ -87,6 +88,37 @@ export class ProductServiceService {
     }
 
     return this.toProtoProduct(product);
+  }
+
+  async deleteProduct(id: string): Promise<DeleteProductResponse> {
+    const imageKeys = await this.productsRepo.manager.transaction(
+      async (manager) => {
+        const product = await manager.findOne(ProductEntity, { where: { id } });
+
+        if (!product) {
+          throw new RpcException({
+            code: status.NOT_FOUND,
+            message: `Product ${id} not found`,
+          });
+        }
+
+        const comments = await manager.find(CommentEntity, {
+          where: { productId: id },
+        });
+
+        await manager.delete(CommentEntity, { productId: id });
+        await manager.delete(ProductEntity, { id });
+
+        return [
+          ...(product.imageUrl ? [product.imageUrl] : []),
+          ...comments.flatMap((comment) => this.commentImageKeys(comment)),
+        ];
+      },
+    );
+
+    await this.bustCatalogCache();
+    this.logger.log(`Deleted product ${id} with ${imageKeys.length} image(s)`);
+    return { id, imageKeys };
   }
 
   async listProducts(page = 1): Promise<ListProductsResponse> {

@@ -3,6 +3,7 @@ import {
   S3Client,
   PutObjectCommand,
   CreateBucketCommand,
+  DeleteObjectsCommand,
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -22,6 +23,7 @@ const MAX_HEIGHT = 240;
 
 const BUCKET = process.env.S3_BUCKET ?? 'products';
 const PRESIGN_EXPIRES = 3600;
+const MAX_DELETE_KEYS = 1000;
 
 const s3Credentials = {
   accessKeyId: process.env.S3_ACCESS_KEY ?? 'minioadmin',
@@ -93,6 +95,30 @@ export class UploadService implements OnModuleInit {
 
     this.logger.log(`Uploaded to S3: ${key}`);
     return key;
+  }
+
+  /** Best-effort cleanup: a failed removal must not fail the caller's request. */
+  async deleteImages(keys: string[]): Promise<void> {
+    const unique = [...new Set(keys.filter(Boolean))];
+
+    for (let i = 0; i < unique.length; i += MAX_DELETE_KEYS) {
+      const batch = unique.slice(i, i + MAX_DELETE_KEYS);
+      try {
+        await this.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: BUCKET,
+            Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+          }),
+        );
+        this.logger.log(`Deleted from S3: ${batch.length} object(s)`);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to delete S3 objects: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
   }
 
   async getSignedImageUrl(key: string): Promise<string> {

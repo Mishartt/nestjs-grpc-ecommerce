@@ -16,6 +16,8 @@ export type OrderEventItem = {
 export type OrderStatusEvent = {
   type: OrderEventType;
   orderId: string;
+  /** Prefer this in user-facing copy when present. */
+  orderPublicId?: string;
   userId: string;
   status: string;
   totalAmount: number;

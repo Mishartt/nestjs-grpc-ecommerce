@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -11,6 +12,11 @@ import {
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  /** Human-facing number, e.g. ORD-A7K2M9QX. Null only for pre-migration rows. */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  publicId!: string | null;
 
   @Column()
   userId!: string;

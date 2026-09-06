@@ -40,6 +40,8 @@ export const productsApi = {
       }),
     ),
   get: (id: string) => request<Product>(http.get(`/products/${id}`)),
+  remove: (id: string) =>
+    request<{ id: string }>(http.delete(`/products/${id}`)),
   comments: (id: string, sort = 'createdAt', order = 'desc', page = 1) =>
     request<ProductCommentList>(
       http.get(`/products/${id}/comments`, { params: { sort, order, page } }),
@@ -62,7 +64,11 @@ export const productsApi = {
 };
 
 function normalizeOrder(order: Order): Order {
-  return { ...order, items: order.items ?? [] };
+  return {
+    ...order,
+    publicId: order.publicId?.trim() || undefined,
+    items: order.items ?? [],
+  };
 }
 
 export const ordersApi = {

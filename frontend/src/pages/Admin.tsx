@@ -5,31 +5,33 @@ import { patchById, useRealtimeBindings } from '../api/realtime';
 import type { Order, Payment } from '../types';
 import { useAuthStore } from '../shared/auth/store';
 import { OrderItems } from '../shared/ui/OrderItems';
+import { orderPublicLabel } from '../shared/ui/orderLabel';
 
 function money(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
-function OrderIdButton({ id }: { id: string }) {
-  const [expanded, setExpanded] = useState(false);
+function OrderNumberButton({ label }: { label: string }) {
+  const [copied, setCopied] = useState(false);
 
   async function onClick() {
-    setExpanded((current) => !current);
     try {
-      await navigator.clipboard.writeText(id);
+      await navigator.clipboard.writeText(label);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      /* still show the full id in the table */
+      /* ignore */
     }
   }
 
   return (
     <button
       type="button"
-      className={`copy-id${expanded ? ' copy-id--full' : ''}`}
-      title={expanded ? 'Hide full order id' : 'Show full order id'}
+      className="copy-id"
+      title="Copy order number"
       onClick={() => void onClick()}
     >
-      {expanded ? id : `#${id.slice(0, 8)}`}
+      {copied ? 'Copied' : `#${label}`}
     </button>
   );
 }
@@ -73,7 +75,7 @@ export function AdminPage() {
       setPayments((prev) => {
         const existing = prev.find((row) => row.id === payment.id);
         const fromOrder = ordersRef.current.find(
-          (order) => order.userId === payment.userId,
+          (order) => order.id === payment.orderId,
         );
         return patchById(prev, {
           ...payment,
@@ -83,6 +85,11 @@ export function AdminPage() {
       });
     },
   });
+
+  function orderLabelForPayment(orderId: string) {
+    const order = orders.find((row) => row.id === orderId);
+    return order ? orderPublicLabel(order) : orderId.slice(0, 8);
+  }
 
   if (user?.role !== 'ADMIN') {
     return <Navigate to="/" replace />;
@@ -113,7 +120,7 @@ export function AdminPage() {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td>
-                  <OrderIdButton id={order.id} />
+                  <OrderNumberButton label={orderPublicLabel(order)} />
                 </td>
                 <td>{order.userEmail || 'Unknown user'}</td>
                 <td>
@@ -148,7 +155,7 @@ export function AdminPage() {
               <tr key={payment.id}>
                 <td>#{payment.id.slice(0, 8)}</td>
                 <td>
-                  <OrderIdButton id={payment.orderId} />
+                  <OrderNumberButton label={orderLabelForPayment(payment.orderId)} />
                 </td>
                 <td>{payment.userEmail || 'Unknown user'}</td>
                 <td>{money(payment.amount)}</td>

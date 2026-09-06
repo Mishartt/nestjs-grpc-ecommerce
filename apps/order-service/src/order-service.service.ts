@@ -30,6 +30,7 @@ import {
 } from 'rxjs';
 import { DataSource, LessThan, Repository } from 'typeorm';
 import { OrderEntity, OrderItemEntity } from './entities/order.entity';
+import { generateOrderPublicId } from './utils/public-id';
 
 @Injectable()
 export class OrderServiceService implements OnModuleInit, OnModuleDestroy {
@@ -102,6 +103,7 @@ export class OrderServiceService implements OnModuleInit, OnModuleDestroy {
       const saved = await this.dataSource.transaction(async (manager) => {
         const order = manager.create(OrderEntity, {
           userId: data.userId,
+          publicId: generateOrderPublicId(),
           totalAmount: reservedItems.reduce(
             (sum, item) => sum + item.price * item.quantity,
             0,
@@ -292,6 +294,7 @@ export class OrderServiceService implements OnModuleInit, OnModuleDestroy {
   private toProto(order: OrderEntity): Order {
     return {
       id: order.id,
+      publicId: order.publicId ?? '',
       userId: order.userId,
       totalAmount: order.totalAmount,
       status: order.status,
@@ -319,6 +322,7 @@ export class OrderServiceService implements OnModuleInit, OnModuleDestroy {
       .emit(ORDER_EVENT_PATTERN, {
         type,
         orderId: order.id,
+        orderPublicId: order.publicId || undefined,
         userId: order.userId,
         status: order.status,
         totalAmount: order.totalAmount,

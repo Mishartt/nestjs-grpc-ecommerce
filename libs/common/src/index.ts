@@ -21,6 +21,8 @@ export {
 export type {
   Product,
   CreateProductRequest,
+  DeleteProductRequest,
+  DeleteProductResponse,
   GetProductRequest,
   ListProductsRequest,
   ListProductsResponse,

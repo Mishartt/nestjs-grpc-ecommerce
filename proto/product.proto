@@ -6,6 +6,7 @@ service ProductService {
   rpc GetProduct(GetProductRequest) returns (Product);
   rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
   rpc CreateProduct(CreateProductRequest) returns (Product);
+  rpc DeleteProduct(DeleteProductRequest) returns (DeleteProductResponse);
   rpc DecreaseStock(DecreaseStockRequest) returns (Product);
   rpc IncreaseStock(IncreaseStockRequest) returns (Product);
   rpc ListComments(ListCommentsRequest) returns (ListCommentsResponse);
@@ -22,6 +23,15 @@ message CreateProductRequest {
   double price = 3;
   int32 stock = 4;
   string image_url = 5;
+}
+
+message DeleteProductRequest {
+  string id = 1;
+}
+
+message DeleteProductResponse {
+  string id = 1;
+  repeated string image_keys = 2;
 }
 
 message Product {

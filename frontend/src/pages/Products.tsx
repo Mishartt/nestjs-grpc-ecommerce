@@ -1,6 +1,9 @@
 import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ordersApi, productsApi } from '../api/client';
+import { useAuthStore } from '../shared/auth/store';
+import { OrderFlash } from '../shared/ui/OrderFlash';
+import { orderPublicLabel } from '../shared/ui/orderLabel';
 import type { Product } from '../types';
 
 const MAX_W = 320;
@@ -59,6 +62,7 @@ async function resizeImage(file: File): Promise<File> {
 }
 
 export function ProductsPage() {
+  const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN');
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -66,6 +70,10 @@ export function ProductsPage() {
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [orderFlash, setOrderFlash] = useState<{
+    label: string;
+    status: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
 
@@ -76,6 +84,7 @@ export function ProductsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +128,7 @@ export function ProductsPage() {
 
   function addToCart(product: Product) {
     setNotice('');
+    setOrderFlash(null);
     setCart((prev) => {
       const current = prev[product.id]?.quantity ?? 0;
       const nextQty = Math.min(product.stock, current + 1);
@@ -146,13 +156,17 @@ export function ProductsPage() {
   async function placeOrder() {
     setError('');
     setNotice('');
+    setOrderFlash(null);
     setOrdering(true);
     try {
       const order = await ordersApi.create(
         lines.map((line) => ({ productId: line.product.id, quantity: line.quantity })),
       );
       setCart({});
-      setNotice(`Order ${order.id.slice(0, 8)}… created (${order.status}).`);
+      setOrderFlash({
+        label: orderPublicLabel(order),
+        status: order.status,
+      });
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order failed');
@@ -161,10 +175,42 @@ export function ProductsPage() {
     }
   }
 
+  async function removeProduct(product: Product) {
+    const confirmed = window.confirm(
+      `Delete "${product.name}"? Its comments will be removed too.`,
+    );
+    if (!confirmed) return;
+
+    setError('');
+    setNotice('');
+    setOrderFlash(null);
+    setDeletingId(product.id);
+    try {
+      await productsApi.remove(product.id);
+      setCart((prev) => {
+        if (!prev[product.id]) return prev;
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      setNotice(`Product "${product.name}" deleted.`);
+      if (products.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        await reload();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function onCreate(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setNotice('');
+    setOrderFlash(null);
     if (!imageFile) {
       setError('Image is required');
       return;
@@ -212,10 +258,17 @@ export function ProductsPage() {
           ) : null}
         </div>
         {error ? <p className="error">{error}</p> : null}
+        {orderFlash ? (
+          <OrderFlash label={orderFlash.label} status={orderFlash.status} />
+        ) : null}
         {notice ? <p className="notice">{notice}</p> : null}
         {loading ? <p className="muted">Loading…</p> : null}
         {!loading && products.length === 0 ? (
-          <p className="muted">No products yet. Add one on the right.</p>
+          <p className="muted">
+            {isAdmin
+              ? 'No products yet. Add one on the right.'
+              : 'No products yet. Check back later.'}
+          </p>
         ) : (
           <ul className="product-grid">
             {products.map((product) => (
@@ -244,13 +297,25 @@ export function ProductsPage() {
                     <span className="muted">stock {product.stock}</span>
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  disabled={product.stock <= 0}
-                  onClick={() => addToCart(product)}
-                >
-                  {product.stock <= 0 ? 'Out of stock' : 'Add to cart'}
-                </button>
+                <div className="product-actions">
+                  <button
+                    type="button"
+                    disabled={product.stock <= 0}
+                    onClick={() => addToCart(product)}
+                  >
+                    {product.stock <= 0 ? 'Out of stock' : 'Add to cart'}
+                  </button>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className="ghost danger"
+                      disabled={deletingId === product.id}
+                      onClick={() => void removeProduct(product)}
+                    >
+                      {deletingId === product.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -279,69 +344,71 @@ export function ProductsPage() {
       </section>
 
       <aside className="side">
-        <form className="card" onSubmit={(e) => void onCreate(e)}>
-          <h2>New product</h2>
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
-          <label>
-            Description
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={255}
-              required
-            />
-          </label>
-          <div className="row">
+        {isAdmin ? (
+          <form className="card" onSubmit={(e) => void onCreate(e)}>
+            <h2>New product</h2>
             <label>
-              Price
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label>
+              Description
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={255}
                 required
               />
             </label>
+            <div className="row">
+              <label>
+                Price
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Stock
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                  required
+                />
+              </label>
+            </div>
+
             <label>
-              Stock
+              Image <span className="muted">(required, JPG / PNG / GIF, max 320×240)</span>
               <input
-                type="number"
-                min="0"
-                step="1"
-                value={stock}
-                onChange={(e) => setStock(e.target.value)}
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif"
                 required
+                onChange={(e) => void handleImageChange(e)}
               />
             </label>
-          </div>
+            {imagePreview ? (
+              <img
+                className="upload-preview"
+                src={imagePreview}
+                alt="Preview"
+                style={{ maxWidth: MAX_W, maxHeight: MAX_H }}
+              />
+            ) : null}
 
-          <label>
-            Image <span className="muted">(required, JPG / PNG / GIF, max 320×240)</span>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif"
-              required
-              onChange={(e) => void handleImageChange(e)}
-            />
-          </label>
-          {imagePreview ? (
-            <img
-              className="upload-preview"
-              src={imagePreview}
-              alt="Preview"
-              style={{ maxWidth: MAX_W, maxHeight: MAX_H }}
-            />
-          ) : null}
-
-          <button type="submit" disabled={creating || !imageFile}>
-            {creating ? 'Saving…' : 'Create'}
-          </button>
-        </form>
+            <button type="submit" disabled={creating || !imageFile}>
+              {creating ? 'Saving…' : 'Create'}
+            </button>
+          </form>
+        ) : null}
 
         <div className="card">
           <h2>Cart</h2>

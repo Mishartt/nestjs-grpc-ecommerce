@@ -22,6 +22,15 @@ export interface CreateProductRequest {
   imageUrl: string;
 }
 
+export interface DeleteProductRequest {
+  id: string;
+}
+
+export interface DeleteProductResponse {
+  id: string;
+  imageKeys: string[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -98,6 +107,8 @@ export interface ProductServiceClient {
 
   createProduct(request: CreateProductRequest): Observable<Product>;
 
+  deleteProduct(request: DeleteProductRequest): Observable<DeleteProductResponse>;
+
   decreaseStock(request: DecreaseStockRequest): Observable<Product>;
 
   increaseStock(request: IncreaseStockRequest): Observable<Product>;
@@ -116,6 +127,10 @@ export interface ProductServiceController {
 
   createProduct(request: CreateProductRequest): Promise<Product> | Observable<Product> | Product;
 
+  deleteProduct(
+    request: DeleteProductRequest,
+  ): Promise<DeleteProductResponse> | Observable<DeleteProductResponse> | DeleteProductResponse;
+
   decreaseStock(request: DecreaseStockRequest): Promise<Product> | Observable<Product> | Product;
 
   increaseStock(request: IncreaseStockRequest): Promise<Product> | Observable<Product> | Product;
@@ -133,6 +148,7 @@ export function ProductServiceControllerMethods() {
       "getProduct",
       "listProducts",
       "createProduct",
+      "deleteProduct",
       "decreaseStock",
       "increaseStock",
       "listComments",

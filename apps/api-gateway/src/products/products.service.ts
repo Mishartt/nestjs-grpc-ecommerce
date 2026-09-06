@@ -23,6 +23,10 @@ export class ProductsService implements OnModuleInit {
     return firstValueFrom(this.productClient.createProduct(data));
   }
 
+  deleteProduct(id: string) {
+    return firstValueFrom(this.productClient.deleteProduct({ id }));
+  }
+
   getProduct(id: string) {
     return firstValueFrom(this.productClient.getProduct({ id }));
   }

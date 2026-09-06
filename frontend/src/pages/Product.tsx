@@ -7,6 +7,8 @@ import {
   utf8ByteLength,
 } from '@app/common/comment-html';
 import type { Order, Product, ProductComment } from '../types';
+import { OrderFlash } from '../shared/ui/OrderFlash';
+import { orderPublicLabel } from '../shared/ui/orderLabel';
 
 const ALLOWED_IMAGE = new Set(['image/jpeg', 'image/png', 'image/gif']);
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -170,10 +172,17 @@ function ProductBuy({
       </button>
       {order ? (
         <div className="product-buy-result">
-          <p className="notice">
-            Order {order.id.slice(0, 8)}… {order.status.toLowerCase()}.{' '}
-            <Link to="/orders">View orders</Link>
-          </p>
+          <OrderFlash
+            label={orderPublicLabel(order)}
+            status={order.status}
+            title={
+              order.status === 'PAID'
+                ? 'Payment confirmed'
+                : order.status === 'FAILED'
+                  ? 'Payment failed'
+                  : 'Order placed'
+            }
+          />
           {order.status === 'PENDING' ? (
             <button type="button" disabled={!canPay} onClick={() => void pay()}>
               {paying ? 'Paying…' : 'Pay now'}

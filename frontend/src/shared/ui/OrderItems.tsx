@@ -16,19 +16,23 @@ export function OrderItems({ items, compact = false }: Props) {
 
   return (
     <ul className={`order-items${compact ? ' order-items--compact' : ''}`}>
-      {items.map((item, index) => (
-        <li key={`${item.productId}-${index}`} className="order-item">
-          <span className="order-item-name">{item.productName || 'Product'}</span>
-          <span className="order-item-meta">
-            {item.quantity} × {money(item.price)}
-          </span>
-          {compact ? null : (
+      {items.map((item, index) => {
+        const lineTotal = item.price * item.quantity;
+
+        return (
+          <li key={`${item.productId}-${index}`} className="order-item">
+            <p className="order-item-label">
+              <span className="order-item-name">
+                {item.productName || 'Product'}
+              </span>
+              <span className="order-item-qty">× {item.quantity}</span>
+            </p>
             <span className="order-item-sum">
-              {money(item.price * item.quantity)}
+              {money(compact ? item.price : lineTotal)}
             </span>
-          )}
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

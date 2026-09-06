@@ -4,6 +4,13 @@ import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import type { OrderEventItem, OrderStatusEvent } from '@app/common';
 
+type LetterCopy = {
+  subject: string;
+  title: string;
+  summary: string;
+  note?: string;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -28,119 +35,144 @@ export class MailService {
       text,
       html,
     });
-    this.logger.log(`Sent "${subject}" to ${to} (order ${event.orderId})`);
+    this.logger.log(
+      `Sent "${subject}" to ${to} (order ${event.orderPublicId || event.orderId})`,
+    );
   }
 
   private compose(event: OrderStatusEvent) {
-    const total = `$${Number(event.totalAmount).toFixed(2)}`;
-    const shortId = event.orderId.slice(0, 8);
-    const items = this.formatItems(event.items ?? []);
-    const itemsHtml = this.formatItemsHtml(event.items ?? []);
+    const orderNo = event.orderPublicId || event.orderId.slice(0, 8);
+    const total = this.money(event.totalAmount);
+    const copy = this.copyFor(event.type, orderNo, total);
+    const items = event.items ?? [];
 
-    if (event.type === 'order.paid') {
-      return this.letter({
-        subject: `It's on the way — we packed your order #${shortId}`,
-        greeting: 'Payment landed. Time to ship.',
-        body: [
-          `We've packed your ${items} and handed the box to the courier.`,
-          `Total charged: ${total}. Sit tight — your order is on the road and should be with you soon.`,
-        ],
-        itemsHtml,
-        footer: `Order #${event.orderId}`,
-      });
-    }
+    const text = [
+      copy.title,
+      '',
+      copy.summary,
+      '',
+      'Items:',
+      ...this.formatItemsText(items),
+      '',
+      `Total: ${total}`,
+      `Order: #${orderNo}`,
+      `Status: ${event.status}`,
+      copy.note ? '' : null,
+      copy.note ?? null,
+    ]
+      .filter((line): line is string => line !== null)
+      .join('\n');
 
-    if (event.type === 'order.failed') {
-      return this.letter({
-        subject: `We couldn't charge the card for order #${shortId}`,
-        greeting: "The payment didn't go through.",
-        body: [
-          `Nothing was taken from your account. Your ${items} went straight back on the shelf.`,
-          `Want to try again? Place a new order whenever you're ready — ${total} is still waiting.`,
-        ],
-        itemsHtml,
-        footer: `Order #${event.orderId}`,
-      });
-    }
-
-    if (event.type === 'order.cancelled') {
-      return this.letter({
-        subject: `We had to let order #${shortId} go`,
-        greeting: 'This one expired before checkout.',
-        body: [
-          `We held your ${items} for you, but payment never arrived.`,
-          `The reservation timed out, stock is back in the catalog, and nobody was charged. Come back any time and we'll set it aside again.`,
-        ],
-        itemsHtml,
-        footer: `Order #${event.orderId}`,
-      });
-    }
-
-    return this.letter({
-      subject: `We've got your order #${shortId} — just waiting on payment`,
-      greeting: 'Thanks for shopping with us.',
-      body: [
-        `Your ${items} ${this.isPlural(event.items) ? 'are' : 'is'} reserved and sitting in our warehouse.`,
-        `Pay ${total} in the next few minutes and we'll pack it up and send it on its way.`,
-      ],
-      itemsHtml,
-      footer: `Order #${event.orderId}`,
-    });
-  }
-
-  private letter(opts: {
-    subject: string;
-    greeting: string;
-    body: string[];
-    itemsHtml: string;
-    footer: string;
-  }) {
-    const text = [opts.greeting, '', ...opts.body, '', opts.footer].join('\n');
     const html = `
-      <div style="font-family:Georgia,serif;max-width:520px;line-height:1.5;color:#1a1a1a">
-        <p style="font-size:18px;margin:0 0 12px">${this.escape(opts.greeting)}</p>
-        ${opts.body.map((p) => `<p style="margin:0 0 12px">${this.escape(p)}</p>`).join('')}
-        ${opts.itemsHtml}
-        <p style="margin:16px 0 0;color:#666;font-size:13px">${this.escape(opts.footer)}</p>
+      <div style="margin:0;padding:24px;background:#f4f5f7">
+        <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;line-height:1.5">
+          <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb">
+            <p style="margin:0;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280">Order #${this.escape(orderNo)}</p>
+            <h1 style="margin:6px 0 0;font-size:20px;font-weight:650;letter-spacing:-0.02em">${this.escape(copy.title)}</h1>
+          </div>
+          <div style="padding:20px 24px">
+            <p style="margin:0 0 16px;color:#374151">${this.escape(copy.summary)}</p>
+            ${this.formatItemsHtml(items)}
+            <table style="width:100%;border-collapse:collapse;margin-top:16px">
+              <tr>
+                <td style="padding:8px 0;color:#6b7280">Total</td>
+                <td style="padding:8px 0;text-align:right;font-weight:650">${this.escape(total)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;color:#6b7280">Status</td>
+                <td style="padding:8px 0;text-align:right;font-weight:600">${this.escape(event.status)}</td>
+              </tr>
+            </table>
+            ${
+              copy.note
+                ? `<p style="margin:16px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px">${this.escape(copy.note)}</p>`
+                : ''
+            }
+          </div>
+        </div>
       </div>
     `.trim();
-    return { subject: opts.subject, text, html };
+
+    return { subject: copy.subject, text, html };
   }
 
-  private formatItems(items: OrderEventItem[]) {
+  private copyFor(
+    type: OrderStatusEvent['type'],
+    orderNo: string,
+    total: string,
+  ): LetterCopy {
+    switch (type) {
+      case 'order.paid':
+        return {
+          subject: `Payment received — order #${orderNo}`,
+          title: 'Payment confirmed',
+          summary: `We received ${total} for order #${orderNo}. Your order is paid and will be prepared for delivery.`,
+        };
+      case 'order.failed':
+        return {
+          subject: `Payment failed — order #${orderNo}`,
+          title: 'Payment failed',
+          summary: `We could not charge ${total} for order #${orderNo}. Nothing was taken from your account, and stock has been restored.`,
+          note: 'You can place a new order whenever you are ready.',
+        };
+      case 'order.cancelled':
+        return {
+          subject: `Order cancelled — #${orderNo}`,
+          title: 'Order cancelled',
+          summary: `Order #${orderNo} was cancelled because payment was not completed in time. Reserved stock is back in the catalog, and you were not charged.`,
+        };
+      case 'order.created':
+      default:
+        return {
+          subject: `Order received — #${orderNo}`,
+          title: 'Order received',
+          summary: `Thanks — we reserved your items for order #${orderNo}. Complete payment of ${total} to confirm the order.`,
+          note: 'Unpaid orders expire automatically and stock is released.',
+        };
+    }
+  }
+
+  private money(value: number) {
+    return `$${Number(value).toFixed(2)}`;
+  }
+
+  private formatItemsText(items: OrderEventItem[]) {
     if (!items.length) {
-      return 'items';
+      return ['- (no items)'];
     }
-    const parts = items.map((item) => {
-      const name = item.name || 'item';
-      return item.quantity > 1 ? `${name} × ${item.quantity}` : name;
+    return items.map((item) => {
+      const name = item.name || 'Item';
+      return `- ${name} × ${item.quantity}`;
     });
-    if (parts.length === 1) {
-      return parts[0];
-    }
-    return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   }
 
   private formatItemsHtml(items: OrderEventItem[]) {
     if (!items.length) {
-      return '';
+      return '<p style="margin:0;color:#6b7280">No items</p>';
     }
+
     const rows = items
       .map(
-        (item) =>
-          `<li>${this.escape(item.name || 'item')}${
-            item.quantity > 1 ? ` × ${item.quantity}` : ''
-          }</li>`,
+        (item) => `
+          <tr>
+            <td style="padding:8px 0;border-bottom:1px solid #f3f4f6">${this.escape(item.name || 'Item')}</td>
+            <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;text-align:right;color:#6b7280;white-space:nowrap">× ${item.quantity}</td>
+          </tr>
+        `,
       )
       .join('');
-    return `<ul style="margin:0 0 12px;padding-left:18px">${rows}</ul>`;
-  }
 
-  private isPlural(items?: OrderEventItem[]) {
-    if (!items?.length) {
-      return true;
-    }
-    return items.length > 1 || items[0].quantity > 1;
+    return `
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:0 0 8px;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:#9ca3af;font-weight:600">Item</th>
+            <th style="text-align:right;padding:0 0 8px;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:#9ca3af;font-weight:600">Qty</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
   }
 
   private escape(value: string) {

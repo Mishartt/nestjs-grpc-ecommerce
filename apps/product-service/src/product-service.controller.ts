@@ -3,6 +3,7 @@ import {
   CreateCommentRequest,
   CreateProductRequest,
   DecreaseStockRequest,
+  DeleteProductRequest,
   GetProductRequest,
   IncreaseStockRequest,
   ListCommentsRequest,
@@ -19,6 +20,10 @@ export class ProductServiceController implements IProductServiceController {
 
   createProduct(request: CreateProductRequest) {
     return this.productService.createProduct(request);
+  }
+
+  deleteProduct(request: DeleteProductRequest) {
+    return this.productService.deleteProduct(request.id);
   }
 
   getProduct(request: GetProductRequest) {

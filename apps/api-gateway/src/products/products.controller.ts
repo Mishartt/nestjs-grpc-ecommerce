@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -27,6 +28,9 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { ListCommentsQueryDto } from './dto/list-comments-query.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { CommentHtmlError, sanitizeCommentHtml } from '@app/common/comment-html';
+import { UserRole } from '@app/common/constants/roles';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @Controller('products')
 @UseGuards(AuthGuard('jwt'))
@@ -37,6 +41,8 @@ export class ProductsController {
   ) {}
 
   @Post()
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: memoryStorage(),
@@ -185,6 +191,15 @@ export class ProductsController {
       imageUrls,
     });
     return this.signCommentImages(comment);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async deleteProduct(@Param('id') id: string) {
+    const deleted = await this.productsService.deleteProduct(id);
+    await this.uploadService.deleteImages(deleted.imageKeys ?? []);
+    return { id: deleted.id };
   }
 
   @Get(':id')

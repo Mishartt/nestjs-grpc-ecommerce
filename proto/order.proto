@@ -26,6 +26,7 @@ message Order {
   repeated OrderItem items = 3;
   double total_amount = 4;
   string status = 5;  // "PENDING" | "PAID" | "FAILED" | "CANCELLED"
+  string public_id = 6; // e.g. ORD-A7K2M9QX
 }
 
 message CreateOrderRequest {

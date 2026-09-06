@@ -137,13 +137,13 @@ Open `http://localhost:5173`. Accounts are created via **Register** (CAPTCHA req
 | Role | Email | Password | What to check |
 |------|--------|----------|----------------|
 | User | `user@test.com` | `password` | Catalog, product page, comments, cart, order, pay, live My orders |
-| Admin | `admin@test.com` | `password` | Admin tables + live `order.updated` / `payment.created` |
+| Admin | `admin@test.com` | `password` | Admin tables + live `order.updated` / `payment.created`, **New product** form and **Delete** on catalog cards |
 
 Suggested pass:
 
-1. Register the user → add a product → open it (`/products/:id`) → leave a comment (optional reply + image).
+1. Register the admin → add a product. Register the user (second browser / incognito) → open the product (`/products/:id`) → leave a comment (optional reply + image).
 2. Place an order → **Pay** (`PAID` or `FAILED`, stock restored on fail).
-3. Register the admin (second browser / incognito) → watch the same order update without refresh.
+3. Back in the admin tab → watch the same order update without refresh.
 4. Open Mailhog `http://localhost:8025` — mail to the address you registered (`order.created` on place, `order.paid` / `order.failed` on pay).
 5. Optional: RabbitMQ UI `http://localhost:15672` (`guest` / `guest`) → queue `order.events` · MinIO `http://localhost:9001` · Redis `KEYS products:*` after two catalog reloads.
 
@@ -214,10 +214,10 @@ Local `.env`: `order-service` reads `RABBITMQ_URL` via `ConfigService` after dot
 
 | Event | When | Subject |
 |-------|------|---------|
-| `order.created` | place order | We've got your order — just waiting on payment |
-| `order.paid` | successful pay | It's on the way — we packed your order |
-| `order.failed` | mock pay fail | We couldn't charge the card |
-| `order.cancelled` | pending TTL cron | We had to let this order go |
+| `order.created` | place order | Order received — #ORD-… |
+| `order.paid` | successful pay | Payment received — order #ORD-… |
+| `order.failed` | mock pay fail | Payment failed — order #ORD-… |
+| `order.cancelled` | pending TTL cron | Order cancelled — #ORD-… |
 
 Inbox: `http://localhost:8025`. Management UI: `http://localhost:15672` (`guest` / `guest`) → Queues → `order.events`.
 
@@ -238,7 +238,7 @@ After changing `proto/`: `npm run proto:gen`.
 
 ### Products (JWT)
 
-`POST /products` — `multipart/form-data`: `name`, `description`, `price`, `stock`, optional `image` (JPG/PNG/GIF, ≤ 2 MB). Response `imageUrl` is a presigned URL.
+`POST /products` — ADMIN · `multipart/form-data`: `name`, `description`, `price`, `stock`, optional `image` (JPG/PNG/GIF, ≤ 2 MB). Response `imageUrl` is a presigned URL.
 
 `GET /products?page=1` — 25 per page, LIFO.
 
@@ -247,6 +247,8 @@ After changing `proto/`: `npm run proto:gen`.
 ```
 
 `GET /products/:id`
+
+`DELETE /products/:id` — ADMIN · drops the product with its comments (one transaction), busts the catalog cache, and removes the related images from MinIO. Response `{ "id": "<productId>" }`.
 
 `GET /products/:id/comments?page=1&sort=createdAt&order=desc` — root threads with nested `replies`. Images are presigned URLs.
 
@@ -266,7 +268,7 @@ After changing `proto/`: `npm run proto:gen`.
 
 ### Orders (JWT)
 
-`POST /orders` — stock decreases immediately, status `PENDING`.
+`POST /orders` — stock decreases immediately, status `PENDING`. Response includes `publicId` (e.g. `ORD-A7K2M9QX`) for display; routes still use internal `id`.
 
 ```json
 { "items": [{ "productId": "<id>", "quantity": 2 }] }

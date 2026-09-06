@@ -24,6 +24,8 @@ export interface Order {
   totalAmount: number;
   /** "PENDING" | "PAID" | "FAILED" | "CANCELLED" */
   status: string;
+  /** Human-facing number, e.g. ORD-A7K2M9QX */
+  publicId: string;
 }
 
 export interface CreateOrderRequest {
