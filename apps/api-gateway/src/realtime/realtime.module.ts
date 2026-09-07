@@ -8,10 +8,12 @@ import {
   PAYMENT_SERVICE,
   PROTO_PATH,
 } from '@app/common';
+import { AuthModule } from '../auth/auth.module';
 import { RealtimeGateway } from './realtime.gateway';
 
 @Module({
   imports: [
+    AuthModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'secret',
     }),

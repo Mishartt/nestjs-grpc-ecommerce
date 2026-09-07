@@ -5,6 +5,8 @@ import {
   PAYMENT_SERVICE,
   PAYMENT_SERVICE_NAME,
   PaymentServiceClient,
+  type Order,
+  type Payment,
 } from '@app/common';
 import {
   Inject,
@@ -17,6 +19,7 @@ import { JwtService } from '@nestjs/jwt';
 import { OnGatewayConnection, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { defer, retry, Subscription, timer } from 'rxjs';
 import { Server, Socket } from 'socket.io';
+import { AuthService } from '../auth/auth.service';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 type SocketUser = {
@@ -44,6 +47,7 @@ export class RealtimeGateway
     @Inject(ORDER_SERVICE) private readonly orderGrpc: ClientGrpc,
     @Inject(PAYMENT_SERVICE) private readonly paymentGrpc: ClientGrpc,
     private readonly jwt: JwtService,
+    private readonly authService: AuthService,
   ) {}
 
   onModuleInit() {
@@ -57,8 +61,7 @@ export class RealtimeGateway
         .pipe(retry({ delay: () => timer(3000) }))
         .subscribe({
           next: (order) => {
-            this.server.to(`user:${order.userId}`).emit('order.updated', order);
-            this.server.to('admin').emit('order.updated', order);
+            void this.emitOrderUpdated(order);
           },
           error: (error: unknown) =>
             this.logger.error('Order stream failed', error),
@@ -70,7 +73,7 @@ export class RealtimeGateway
         .pipe(retry({ delay: () => timer(3000) }))
         .subscribe({
           next: (payment) => {
-            this.server.to('admin').emit('payment.created', payment);
+            void this.emitPaymentCreated(payment);
           },
           error: (error: unknown) =>
             this.logger.error('Payment stream failed', error),
@@ -93,6 +96,40 @@ export class RealtimeGateway
     void client.join(`user:${user.id}`);
     if (user.role === 'ADMIN') {
       void client.join('admin');
+    }
+  }
+
+  private async emitOrderUpdated(order: Order) {
+    const payload = {
+      ...order,
+      userEmail: await this.resolveEmail(order.userId),
+    };
+    this.server.to(`user:${order.userId}`).emit('order.updated', payload);
+    this.server.to('admin').emit('order.updated', payload);
+  }
+
+  private async emitPaymentCreated(payment: Payment) {
+    const payload = {
+      ...payment,
+      userEmail: await this.resolveEmail(payment.userId),
+    };
+    this.server.to('admin').emit('payment.created', payload);
+  }
+
+  private async resolveEmail(userId: string) {
+    if (!userId) {
+      return '';
+    }
+    try {
+      const emails = await this.authService.emailsById([userId]);
+      return emails.get(userId) ?? '';
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Failed to resolve email for ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return '';
     }
   }
 
